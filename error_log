@@ -1,0 +1,42 @@
+[16-Aug-2025 11:13:52 UTC] PHP Warning:  require(/home/u789527441/domains/acusync.net/public_html/attendance/vendor/autoload.php): Failed to open stream: No such file or directory in /home/u789527441/domains/acusync.net/public_html/attendance/artisan on line 18
+[16-Aug-2025 11:13:52 UTC] PHP Fatal error:  Uncaught Error: Failed opening required '/home/u789527441/domains/acusync.net/public_html/attendance/vendor/autoload.php' (include_path='.:/opt/alt/php82/usr/share/pear:/opt/alt/php82/usr/share/php:/usr/share/pear:/usr/share/php') in /home/u789527441/domains/acusync.net/public_html/attendance/artisan:18
+Stack trace:
+#0 {main}
+  thrown in /home/u789527441/domains/acusync.net/public_html/attendance/artisan on line 18
+[16-Aug-2025 11:14:08 UTC] PHP Warning:  require(/home/u789527441/domains/acusync.net/public_html/attendance/vendor/autoload.php): Failed to open stream: No such file or directory in /home/u789527441/domains/acusync.net/public_html/attendance/artisan on line 18
+[16-Aug-2025 11:14:08 UTC] PHP Fatal error:  Uncaught Error: Failed opening required '/home/u789527441/domains/acusync.net/public_html/attendance/vendor/autoload.php' (include_path='.:/opt/alt/php82/usr/share/pear:/opt/alt/php82/usr/share/php:/usr/share/pear:/usr/share/php') in /home/u789527441/domains/acusync.net/public_html/attendance/artisan:18
+Stack trace:
+#0 {main}
+  thrown in /home/u789527441/domains/acusync.net/public_html/attendance/artisan on line 18
+[16-Aug-2025 11:15:59 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function Symfony\Component\Console\Helper\exec() in phar:///usr/local/bin/composer1.phar/vendor/symfony/console/Helper/QuestionHelper.php:452
+Stack trace:
+#0 phar:///usr/local/bin/composer1.phar/vendor/symfony/console/Helper/QuestionHelper.php(354): Symfony\Component\Console\Helper\QuestionHelper->hasSttyAvailable()
+#1 phar:///usr/local/bin/composer1.phar/vendor/symfony/console/Helper/QuestionHelper.php(137): Symfony\Component\Console\Helper\QuestionHelper->getHiddenResponse()
+#2 phar:///usr/local/bin/composer1.phar/vendor/symfony/console/Helper/QuestionHelper.php(69): Symfony\Component\Console\Helper\QuestionHelper->doAsk()
+#3 phar:///usr/local/bin/composer1.phar/src/Composer/IO/ConsoleIO.php(304): Symfony\Component\Console\Helper\QuestionHelper->ask()
+#4 phar:///usr/local/bin/composer1.phar/src/Composer/Util/GitHub.php(93): Composer\IO\ConsoleIO->askAndHideAnswer()
+#5 phar:///usr/local/bin/composer1.phar/src/Composer/Util/RemoteFilesystem.php(685): Composer\Util\GitHub->authorizeOAuthInteractively()
+#6 phar:///usr/local/bin/composer1.phar/src/Composer/Util/RemoteFilesystem.php(338): Composer\Util\RemoteFilesystem->promptAuthAndRetry()
+#7 phar:///usr/local/bin/composer1.phar/src/Composer/Util/RemoteFilesystem.php(90): Composer\Util\RemoteFilesystem->get()
+#8 phar:///usr/local/bin/composer1.phar/src/Composer/Downloader/FileDownloader.php(153): Composer\Util\RemoteFilesystem->copy()
+#9 phar:///usr/local/bin/composer1.phar/src/Composer/Downloader/FileDownloader.php(97): Composer\Downloader\FileDownloader->doDownload()
+#10 phar:///usr/local/bin/composer1.phar/src/Composer/Downloader/ArchiveDownloader.php(38): Composer\Downloader\FileDownloader->download()
+#11 phar:///usr/local/bin/composer1.phar/src/Composer/Downloader/ZipDownloader.php(77): Composer\Downloader\ArchiveDownloader->download()
+#12 phar:///usr/local/bin/composer1.phar/src/Composer/Downloader/DownloadManager.php(216): Composer\Downloader\ZipDownloader->download()
+#13 phar:///usr/local/bin/composer1.phar/src/Composer/Installer/LibraryInstaller.php(197): Composer\Downloader\DownloadManager->download()
+#14 phar:///usr/local/bin/composer1.phar/src/Composer/Installer/LibraryInstaller.php(101): Composer\Installer\LibraryInstaller->installCode()
+#15 phar:///usr/local/bin/composer1.phar/src/Composer/Installer/InstallationManager.php(173): Composer\Installer\LibraryInstaller->install()
+#16 phar:///usr/local/bin/composer1.phar/src/Composer/Installer/InstallationManager.php(160): Composer\Installer\InstallationManager->install()
+#17 phar:///usr/local/bin/composer1.phar/src/Composer/Installer.php(611): Composer\Installer\InstallationManager->execute()
+#18 phar:///usr/local/bin/composer1.phar/src/Composer/Installer.php(232): Composer\Installer->doInstall()
+#19 phar:///usr/local/bin/composer1.phar/src/Composer/Command/InstallCommand.php(125): Composer\Installer->run()
+#20 phar:///usr/local/bin/composer1.phar/vendor/symfony/console/Command/Command.php(245): Composer\Command\InstallCommand->execute()
+#21 phar:///usr/local/bin/composer1.phar/vendor/symfony/console/Application.php(835): Symfony\Component\Console\Command\Command->run()
+#22 phar:///usr/local/bin/composer1.phar/vendor/symfony/console/Application.php(185): Symfony\Component\Console\Application->doRunCommand()
+#23 phar:///usr/local/bin/composer1.phar/src/Composer/Console/Application.php(283): Symfony\Component\Console\Application->doRun()
+#24 phar:///usr/local/bin/composer1.phar/vendor/symfony/console/Application.php(117): Composer\Console\Application->doRun()
+#25 phar:///usr/local/bin/composer1.phar/src/Composer/Console/Application.php(113): Symfony\Component\Console\Application->run()
+#26 phar:///usr/local/bin/composer1.phar/bin/composer(64): Composer\Console\Application->run()
+#27 /usr/local/bin/composer1.phar(24): require('phar:///usr/loc...')
+#28 {main}
+  thrown in phar:///usr/local/bin/composer1.phar/vendor/symfony/console/Helper/QuestionHelper.php on line 452
