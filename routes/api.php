@@ -16,6 +16,8 @@ use App\Http\Controllers\DailyAttendanceController;
 | is assigned the "api" middleware group. Enjoy building your API!
 |
 */
+// routes/api.php
+Route::post('/hik/persons/sync', [AttendanceController::class, 'syncPersonsFromHik']);
 
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

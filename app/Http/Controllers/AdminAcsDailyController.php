@@ -11,37 +11,44 @@ use Illuminate\Support\Facades\Http;
 class AdminAcsDailyController extends Controller
 {
     /**
-     * Live ACS-only daily view (no attendance table).
-     * - Groups per person/day (robust: person_code → card_number → name → guid)
-     * - First event = Check-in, Last event = Check-out
-     * - Enriches name/photo/group from today, last 30 days, then targeted “ever” backfill
-     * - Mobile vs Device source detection (liberal)
+     * Live ACS-only view.
+     * Supports: single date or date range; person_code/name filters; source filter (Device/Mobile).
+     * Grouping: per person (or card/name/guid fallback) **per day**.
      */
     public function index(Request $req)
     {
         $tz = config('app.timezone', 'Asia/Karachi');
 
-        // Filters
-        $date        = $req->query('date');
-        $personCode  = trim((string) $req->query('person_code', ''));
-        $nameLike    = trim((string) $req->query('name', ''));
-        $sourceWant  = $req->query('source'); // Device | Mobile | (blank)
-        $perPageReq  = (int) $req->query('perPage', 25);
-        $perPage     = max(10, min(200, $perPageReq));
+        // --- Inputs ---
+        $dateFrom   = trim((string) $req->query('date_from', ''));
+        $dateTo     = trim((string) $req->query('date_to', ''));
+        $date       = $req->query('date'); // fallback if no range
 
-        if (!$date) $date = now($tz)->toDateString();
+        $personCode = trim((string) $req->query('person_code', ''));
+        $nameLike   = trim((string) $req->query('name', ''));
+        $sourceWant = $req->query('source'); // Device | Mobile | (blank)
+        $perPageReq = (int) $req->query('perPage', 25);
+        $perPage    = max(10, min(200, $perPageReq));
 
-        $start = Carbon::parse($date, $tz)->startOfDay();
-        $end   = Carbon::parse($date, $tz)->endOfDay();
+        // --- Window selection: Range > Single ---
+        $hasRange = ($dateFrom !== '' || $dateTo !== '');
+        if ($hasRange) {
+            $from = $dateFrom !== '' ? Carbon::parse($dateFrom, $tz)->startOfDay() : Carbon::now($tz)->startOfDay();
+            $to   = $dateTo   !== '' ? Carbon::parse($dateTo,   $tz)->endOfDay()   : Carbon::now($tz)->endOfDay();
+            if ($to->lt($from)) { [$from, $to] = [$to->copy()->startOfDay(), $from->copy()->endOfDay()]; }
+            $start = $from;
+            $end   = $to;
+        } else {
+            if (!$date) $date = now($tz)->toDateString();
+            $start = Carbon::parse($date, $tz)->startOfDay();
+            $end   = Carbon::parse($date, $tz)->endOfDay();
+        }
 
-        // Base query for window
-        $q = AcsEvent::query()
-            ->whereBetween('occur_time_pk', [$start, $end]);
+        // --- Base query with filters ---
+        $q = AcsEvent::query()->whereBetween('occur_time_pk', [$start, $end]);
 
-        // Pre-filters
         if ($personCode !== '') {
-            // NOTE: This naturally excludes unknown/mobile rows with blank person_code
-            $q->where('person_code', $personCode);
+            $q->where('person_code', $personCode); // unknown/mobile blanks will be excluded naturally
         }
         if ($nameLike !== '') {
             $q->where(function($w) use ($nameLike) {
@@ -60,7 +67,7 @@ class AdminAcsDailyController extends Controller
             'record_guid','event_type','direction','swipe_auth_result'
         ]);
 
-        // ------------------ 1) TODAY maps (meta + card->person) ------------------
+        // ---------- 1) TODAY maps (meta + card→person) ----------
         $cardToPerson = [];
         $metaByPc     = []; // pc => ['fn','ln','full','grp','photo']
         $metaByCard   = []; // card => same
@@ -69,10 +76,8 @@ class AdminAcsDailyController extends Controller
             $pc = self::cleanVal($e->person_code ?? '');
             $cn = self::cleanVal($e->card_number ?? '');
 
-            // card→person
             if ($pc !== '' && $cn !== '') $cardToPerson[$cn] = $pc;
 
-            // today meta
             $pack = [
                 'fn'   => self::cleanVal($e->first_name ?? ''),
                 'ln'   => self::cleanVal($e->last_name ?? ''),
@@ -81,15 +86,11 @@ class AdminAcsDailyController extends Controller
                 'photo'=> self::cleanVal($e->photo_url ?? ''),
             ];
 
-            if ($pc !== '') {
-                $metaByPc[$pc] = self::preferRicherMeta($metaByPc[$pc] ?? null, $pack);
-            }
-            if ($cn !== '') {
-                $metaByCard[$cn] = self::preferRicherMeta($metaByCard[$cn] ?? null, $pack);
-            }
+            if ($pc !== '')   $metaByPc[$pc]   = self::preferRicherMeta($metaByPc[$pc] ?? null, $pack);
+            if ($cn !== '')   $metaByCard[$cn] = self::preferRicherMeta($metaByCard[$cn] ?? null, $pack);
         }
 
-        // ------------------ 2) PAST 30 DAYS backfill (if blanks exist) ------------------
+        // ---------- 2) PAST 30 DAYS backfill (if blanks exist) ----------
         $needsBackfill = false;
         foreach ($events as $e) {
             $pc = self::cleanVal($e->person_code ?? '');
@@ -121,23 +122,15 @@ class AdminAcsDailyController extends Controller
                     'photo'=> self::cleanVal($p->photo_url ?? ''),
                 ];
 
-                if ($pc !== '') {
-                    $metaByPc[$pc] = self::preferRicherMeta($metaByPc[$pc] ?? null, $pack);
-                }
-                if ($cn !== '') {
-                    $metaByCard[$cn] = self::preferRicherMeta($metaByCard[$cn] ?? null, $pack);
-                }
-
-                if ($pc !== '' && $cn !== '' && !isset($cardToPerson[$cn])) {
-                    $cardToPerson[$cn] = $pc;
-                }
+                if ($pc !== '')   $metaByPc[$pc]   = self::preferRicherMeta($metaByPc[$pc] ?? null, $pack);
+                if ($cn !== '')   $metaByCard[$cn] = self::preferRicherMeta($metaByCard[$cn] ?? null, $pack);
+                if ($pc !== '' && $cn !== '' && !isset($cardToPerson[$cn])) $cardToPerson[$cn] = $pc;
             }
         }
 
-        // ------------------ 2b) EVER backfill for unresolved (targeted) ------------------
+        // ---------- 2b) Targeted EVER backfill ----------
         $unresolvedPc   = [];
         $unresolvedCard = [];
-
         foreach ($events as $e) {
             $pc = self::cleanVal($e->person_code ?? '');
             $cn = self::cleanVal($e->card_number ?? '');
@@ -174,17 +167,13 @@ class AdminAcsDailyController extends Controller
                             'photo'=> self::cleanVal($p->photo_url ?? ''),
                         ];
 
-                        if ($pc !== '') {
-                            $metaByPc[$pc] = self::preferRicherMeta($metaByPc[$pc] ?? null, $pack);
-                        }
-                        if ($cn !== '') {
-                            $metaByCard[$cn] = self::preferRicherMeta($metaByCard[$cn] ?? null, $pack);
-                        }
+                        if ($pc !== '')   $metaByPc[$pc]   = self::preferRicherMeta($metaByPc[$pc] ?? null, $pack);
+                        if ($cn !== '')   $metaByCard[$cn] = self::preferRicherMeta($metaByCard[$cn] ?? null, $pack);
                     }
                 });
         }
 
-        // ------------------ 3) Robust grouping (pc → card → name → guid) ------------------
+        // ---------- 3) Grouping per day (pc → card → name → guid) ----------
         $byKey = [];
         foreach ($events as $e) {
             $pc = self::cleanVal($e->person_code ?? '');
@@ -199,21 +188,24 @@ class AdminAcsDailyController extends Controller
                     : trim(((string)($e->first_name ?? '')).' '.((string)($e->last_name ?? '')))
             );
 
+            // local day → key me shamil
+            $localDay = $e->occur_time_pk->copy()->timezone($tz)->toDateString();
+
             if ($pc !== '') {
-                $key = 'pc:'.$pc;
+                $key = 'pc:'.$pc.':d:'.$localDay;
             } elseif ($cn !== '') {
-                $key = 'card:'.$cn;
+                $key = 'card:'.$cn.':d:'.$localDay;
             } elseif ($name !== '') {
-                $key = 'name:'.$name;
+                $key = 'name:'.$name.':d:'.$localDay;
             } else {
-                $key = 'guid:'.($e->record_guid ?? spl_object_id($e));
+                $key = 'guid:'.($e->record_guid ?? spl_object_id($e)).':d:'.$localDay;
             }
 
             if (!isset($byKey[$key])) $byKey[$key] = [];
             $byKey[$key][] = $e;
         }
 
-        // ------------------ 4) Summaries + SOURCE filter + META hydrate ------------------
+        // ---------- 4) Summaries + SOURCE filter + META hydrate ----------
         $rows = [];
         foreach ($byKey as $key => $rowsForKey) {
             usort($rowsForKey, fn($a,$b) => $a->occur_time_pk <=> $b->occur_time_pk);
@@ -230,19 +222,16 @@ class AdminAcsDailyController extends Controller
                 }
             }
 
-            // Resolve identification fields
+            // Resolve identification
             $pc = self::cleanVal($first->person_code ?? '');
             $cn = self::cleanVal($first->card_number ?? '');
-            if ($pc === '' && $cn !== '' && isset($cardToPerson[$cn])) {
-                $pc = $cardToPerson[$cn];
-            }
+            if ($pc === '' && $cn !== '' && isset($cardToPerson[$cn])) $pc = $cardToPerson[$cn];
 
-            // ---- META HYDRATE (prefer: today by PC → today by CARD → past by PC → past by CARD → event self)
+            // META hydrate
             $meta = null;
-            if ($pc !== '' && isset($metaByPc[$pc]))     $meta = self::preferRicherMeta($meta, $metaByPc[$pc]);
-            if ($cn !== '' && isset($metaByCard[$cn]))   $meta = self::preferRicherMeta($meta, $metaByCard[$cn]);
+            if ($pc !== '' && isset($metaByPc[$pc]))   $meta = self::preferRicherMeta($meta, $metaByPc[$pc]);
+            if ($cn !== '' && isset($metaByCard[$cn])) $meta = self::preferRicherMeta($meta, $metaByCard[$cn]);
 
-            // from event pair if still empty
             $eventPack = [
                 'fn'   => self::cleanVal($first->first_name ?: $last->first_name ?: ''),
                 'ln'   => self::cleanVal($first->last_name  ?: $last->last_name  ?: ''),
@@ -261,11 +250,13 @@ class AdminAcsDailyController extends Controller
                            : ($cn !== '' ? 'CARD# '.$cn
                            : ($fullName !== '' ? 'NAME: '.$fullName : 'UNKNOWN'));
 
+            $localDayFirst = $first->occur_time_pk->copy()->timezone($tz)->toDateString();
+
             $rows[] = [
                 'key'             => $key,
                 'person_code'     => $pc,
                 'display_code'    => $displayCode,
-                'occur_date_pk'   => (string)($first->occur_date_pk ?: $date),
+                'occur_date_pk'   => $localDayFirst, // ensure day shown per row
                 'first_event'     => $first,
                 'last_event'      => $last,
                 'photo_url'       => $photo,
@@ -280,7 +271,7 @@ class AdminAcsDailyController extends Controller
             ];
         }
 
-        // ------------------ 5) Manual pagination ------------------
+        // ---------- 5) Manual pagination ----------
         $page     = (int) max(1, (int) $req->query('page', 1));
         $total    = count($rows);
         $offset   = ($page - 1) * $perPage;
@@ -381,17 +372,13 @@ class AdminAcsDailyController extends Controller
         }
 
         return redirect()
-  ->route('acs.daily.index', request()->query())
-  ->with('flash', ['ok' => true, 'message' => 'Pulled latest events from ACS.']);
-
+            ->route('acs.daily.index', request()->query())
+            ->with('flash', ['ok' => true, 'message' => 'Pulled latest events from ACS.']);
     }
 
-    /**
-     * Decide Mobile vs Device (liberal).
-     * - If device_name/card_reader_name contains "mobile"/"app" => Mobile
-     * - Else if any of device_name/card_reader_name/device_id present => Device
-     * - Else => Mobile
-     */
+    // -------- Helpers --------
+
+    /** Decide Mobile vs Device (liberal). */
     private function sourceFromEvent($e): array
     {
         $dn = trim((string)($e->device_name ?? ''));

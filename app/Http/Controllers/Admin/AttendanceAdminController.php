@@ -70,5 +70,47 @@ class AttendanceAdminController extends Controller
 
     return view('admin.attendances.index', compact('attendances', 'columns', 'labels', 'meta'));
 }
+ public function syncNow(Request $req, \App\Http\Controllers\AttendanceController $attCtrl)
+    {
+        // Filters se date lo (ya today), aur person_code agar diya ho to pass karo
+        $tz   = config('app.timezone', 'Asia/Karachi');
+        $date = $req->input('date') ?: now($tz)->toDateString();
 
+        // Hik API ke payload ko build karo (begin/end ISO) — AttendanceController::syncFromHik handle karega
+        $forward = new Request([
+            'startDate' => $date,
+            'endDate'   => $date,
+            // Agar specific person_code filter diya hai to usi ko sync karo; warna sab
+            // NOTE: syncFromHik personCodeList accept karta hai
+            'personCodes' => $req->filled('person_code') ? [$req->input('person_code')] : null,
+            // paging sensible defaults
+            'pageIndex' => 1,
+            'pageSize'  => 200,
+        ]);
+
+        // Token pickup syncFromHik khud headers/env se kar lega (services.hik.token)
+        $resp = $attCtrl->syncFromHik($forward);
+        $code = $resp->getStatusCode();
+        $data = $resp->getData(true);
+
+        if ($code >= 400 || empty($data['ok'])) {
+            return redirect()->route('admin.attendances.index', $req->only(['date','person_code']))
+                ->with('flash', [
+                    'ok'      => false,
+                    'message' => $data['msg'] ?? 'Sync failed',
+                    'stats'   => $data,
+                ]);
+        }
+
+        return redirect()->route('admin.attendances.index', $req->only(['date','person_code']))
+            ->with('flash', [
+                'ok'      => true,
+                'message' => 'Sync completed',
+                'stats'   => [
+                    'saved'    => $data['saved']   ?? null,
+                    'window'   => $data['window']  ?? null,
+                    'pageInfo' => $data['page']    ?? null,
+                ],
+            ]);
+    }
 }

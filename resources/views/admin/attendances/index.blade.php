@@ -21,18 +21,31 @@
 @section('content')
 <div class="container-fluid py-4">
 
-  {{-- Header + Filters --}}
-  <div class="d-flex align-items-center justify-content-between mb-3">
-    <h4 class="mb-0">Attendance Records</h4>
+{{-- Header --}}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h4 class="mb-0">Attendance Records</h4>
 
-    <form method="get" class="d-flex gap-2">
-      {{-- keep date hidden per your code, but style-ready if you show it later --}}
-      <input type="date" name="date" value="{{ $meta['filters']['date'] ?? '' }}" class="form-control form-control-sm d-none"/>
-      <input type="text" name="person_code" value="{{ $meta['filters']['person_code'] ?? '' }}" class="mt-1 form-control form-control-lg" placeholder="Person Code">
-      <button class="btn btn-lg btn-primary btn-icon mx-3">Filter</button>
-      <a href="{{ route('admin.attendances.index') }}" class="btn btn-lg btn-outline-secondary">Reset</a>
+  <div class="d-flex align-items-center">
+    {{-- existing filter form (left side) ko mat chedna --}}
+
+    {{-- Quick Reload --}}
+    <a href="{{ route('admin.attendances.index', request()->query()) }}"
+       class="btn btn-outline-secondary btn-icon mr-3">
+      <i class="bi bi-arrow-clockwise"></i> Reload
+    </a>
+
+    {{-- 🔄 Sync Now (posts to server, then redirects back with flash) --}}
+    <form action="{{ route('admin.attendances.syncNow') }}" method="POST"
+          onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').innerHTML='Syncing…';">
+      @csrf
+      <input type="hidden" name="date" value="{{ $meta['filters']['date'] ?? '' }}">
+      <input type="hidden" name="person_code" value="{{ $meta['filters']['person_code'] ?? '' }}">
+      <button type="submit" class="btn btn-primary btn-icon">
+        <i class="bi bi-cloud-arrow-down"></i> Sync Now
+      </button>
     </form>
   </div>
+</div>
 
   {{-- Filter summary chips --}}
   @php

@@ -1,7 +1,5 @@
 @extends('layouts.master')
 
-
-
 @section('content')
 <div class="container-fluid">
 
@@ -56,6 +54,15 @@
   {{-- Filters --}}
   <form method="GET" action="{{ route('acs.daily.index') }}" class="card card-body mb-2 card-flat shadow-sm-2">
     <div class="row g-2">
+      <div class="col-md-2">
+        <label class="form-label mini">From</label>
+        <input type="date" name="date_from" value="{{ $filters['date_from'] ?? '' }}" class="form-control">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label mini">To</label>
+        <input type="date" name="date_to" value="{{ $filters['date_to'] ?? '' }}" class="form-control">
+      </div>
+
       <div class="col-md-3">
         <label class="form-label mini">Name</label>
         <input type="text" name="name" value="{{ $filters['name'] ?? '' }}" class="form-control" placeholder="e.g. Sohail">
@@ -64,13 +71,15 @@
         <label class="form-label mini">Person Code</label>
         <input type="text" name="person_code" value="{{ $filters['person_code'] ?? '' }}" class="form-control">
       </div>
+
+      {{-- Optional single-date (fallback if range empty) --}}
       <div class="col-md-2">
         <label class="form-label mini">Date</label>
-        <input type="date" name="date" value="{{ $filters['date'] ?? now($tz)->toDateString() }}" class="form-control">
+        <input type="date" name="date" value="{{ $filters['date'] ?? ($filters['date_from'] ?? $filters['date_to'] ?? now($tz)->toDateString()) }}" class="form-control">
       </div>
-    
+
       <div class="col-md-2">
-        <label class="form-label mini">Per Page</label>
+        <label class="form-label mini mt-2">Per Page</label>
         @php $pp = (int)($filters['perPage'] ?? 25); @endphp
         <select name="perPage" class="form-control">
           @foreach([25,50,100,200] as $opt)
@@ -78,7 +87,8 @@
           @endforeach
         </select>
       </div>
-      <div class="col-md-3 d-flex align-items-end gap-2">
+
+      <div class="col-md-4 d-flex align-items-end gap-2">
         <button class="btn btn-success btn-icon mr-3"><i class="bi bi-funnel"></i> Apply</button>
         <a href="{{ route('acs.daily.index') }}" class="btn btn-outline-secondary">Reset</a>
       </div>
@@ -88,11 +98,18 @@
   {{-- Filter summary chips --}}
   @php
     $chips = [];
-    if(!empty($filters['name'])) $chips[] = ['label'=>'Name','val'=>$filters['name'],'dot'=>'#0d6efd'];
+    if(!empty($filters['name']))        $chips[] = ['label'=>'Name','val'=>$filters['name'],'dot'=>'#0d6efd'];
     if(!empty($filters['person_code'])) $chips[] = ['label'=>'Code','val'=>$filters['person_code'],'dot'=>'#20c997'];
-    if(!empty($filters['date'])) $chips[] = ['label'=>'Date','val'=>$filters['date'],'dot'=>'#6f42c1'];
-    if(!empty($filters['source'])) $chips[] = ['label'=>'Source','val'=>$filters['source'],'dot'=>'#0dcaf0'];
+
+    if(!empty($filters['date_from']) || !empty($filters['date_to'])) {
+      $chips[] = ['label'=>'Range','val'=>($filters['date_from'] ?? '—').' → '.($filters['date_to'] ?? '—'),'dot'=>'#fd7e14'];
+    } elseif(!empty($filters['date'])) {
+      $chips[] = ['label'=>'Date','val'=>$filters['date'],'dot'=>'#6f42c1'];
+    }
+
+    if(!empty($filters['source']))      $chips[] = ['label'=>'Source','val'=>$filters['source'],'dot'=>'#0dcaf0'];
   @endphp
+
   <div class="d-flex align-items-center justify-content-between mb-2">
     <div class="d-flex flex-wrap gap-2">
       <span class="chip"><span class="dot" style="background:#0d6efd"></span> Total <strong>{{ $page->total() }}</strong></span>
@@ -144,22 +161,14 @@
             <td>
               <div class="fw-semibold">{{ $name }}</div>
             </td>
-            <td>
-              <div class="fw-semibold">{{ $row['display_code'] }}</div>
-              </td>
+            <td><div class="fw-semibold">{{ $row['display_code'] }}</div></td>
             <td>{{ $row['group_name'] ?? '—' }}</td>
             <td>{{ $date }}</td>
             <td>
               <div class="fw-semibold">{{ $inT }}</div>
-              <!--@if($row['in_device_name'])-->
-              <!--  <div class="small text-muted">{{ $row['in_device_name'] }}</div>-->
-              <!--@endif-->
             </td>
             <td>
               <div class="fw-semibold">{{ $outT }}</div>
-              <!--@if($row['out_device_name'])-->
-              <!--  <div class="small text-muted">{{ $row['out_device_name'] }}</div>-->
-              <!--@endif-->
             </td>
             <td>
               <div class="small d-flex flex-column gap-1">
@@ -167,7 +176,6 @@
                 <span class="badge {{ $outSrc==='Mobile'?'text-bg-info':'text-bg-primary' }} badge-soft" data-bs-toggle="tooltip" title="Last punch source">OUT: {{ $outSrc ?: '—' }}</span>
               </div>
             </td>
-           
           </tr>
         @empty
           <tr>
@@ -187,7 +195,18 @@
   </div>
 </div>
 
-
+{{-- Timeline modal (optional; if you add a trigger button) --}}
+<div class="modal fade" id="timelineModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="timelineTitle">Timeline</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="timelineBody"></div>
+    </div>
+  </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -203,6 +222,21 @@
   document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
     new bootstrap.Tooltip(el);
   });
+
+  // Range UX: if range filled, clear single date
+  const from = document.querySelector('input[name="date_from"]');
+  const to   = document.querySelector('input[name="date_to"]');
+  const single = document.querySelector('input[name="date"]');
+  if (from && to) {
+    const syncBounds = () => {
+      if (to.value && from.value && to.value < from.value) to.value = from.value;
+      if (from.value) to.min = from.value;
+      if (to.value)   from.max = to.value;
+      if ((from.value || to.value) && single) single.value = '';
+    };
+    from.addEventListener('change', syncBounds);
+    to.addEventListener('change', syncBounds);
+  }
 
   function openTimeline(person_code, date) {
     const title = document.getElementById('timelineTitle');

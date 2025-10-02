@@ -7,72 +7,25 @@ use App\Http\Controllers\FingerDevicesControlller;
 use App\Http\Controllers\Admin\AttendanceAdminController;
 use App\Http\Controllers\AdminRollupWebController; 
 use App\Http\Controllers\AdminAcsDailyController; 
+use App\Http\Controllers\AttendanceController; 
 use Illuminate\Http\Request;
 use App\Models\AcsEvent;
 use Illuminate\Support\Carbon;
 
-Route::get('/debug/acs/today', function (Request $r) {
-    $tz    = config('app.timezone','Asia/Karachi'); // <- confirm!
-    $start = \Illuminate\Support\Carbon::now($tz)->startOfDay();
-    $end   = \Illuminate\Support\Carbon::now($tz)->endOfDay();
 
-    $q = \App\Models\AcsEvent::query()
-        ->whereBetween('occur_time_pk', [$start, $end])
-        ->orderBy('occur_time_pk');
+// ✅ keep these for DAILY PEOPLE (AttendanceController)
+Route::get('/admin/daily-people', [AttendanceController::class, 'dailyPeopleIndex'])
+    ->name('acs.people.index');
 
-    if ($r->filled('limit')) $q->limit((int)$r->query('limit', 200));
+Route::post('/admin/daily-people/sync', [AttendanceController::class, 'dailyPeopleSyncNow'])
+    ->name('acs.people.syncNow');
 
-    $rows = $q->get([
-        'person_code','card_number','occur_time_pk','occur_date_pk',
-        'device_name','card_reader_name','device_id',
-        'first_name','last_name','full_name','full_path','photo_url',
-        'event_type','direction','swipe_auth_result','record_guid'
-    ]);
+Route::post('/admin/daily-people/filter', [AttendanceController::class, 'dailyPeopleSetFilters'])
+    ->name('acs.people.filter');
 
-    // computed helpers
-    $withComputed = $rows->map(function ($e) {
-        $first = trim((string)($e->first_name ?? ''));
-        $last  = trim((string)($e->last_name ?? ''));
-        $nm    = trim($first.' '.$last);
-        $display_name = $e->full_name ?: ($nm !== '' ? ucwords(strtolower($nm)) : null);
+Route::post('/admin/daily-people/filter/reset', [AttendanceController::class, 'dailyPeopleResetFilters'])
+    ->name('acs.people.filterReset');
 
-        $hasDevice = !empty($e->device_name) || !empty($e->card_reader_name) || !empty($e->device_id);
-        $source_guess = $hasDevice ? 'Device' : 'Mobile'; // true Mobile ke liye parser me field persist karo
-
-        return [
-            'occur_time_pk' => $e->occur_time_pk,
-            'person_code'   => $e->person_code,
-            'card_number'   => $e->card_number,
-            'display_name'  => $display_name,
-            'group'         => $e->full_path,
-            'photo_url'     => $e->photo_url,
-            'device_name'   => $e->device_name,
-            'reader'        => $e->card_reader_name,
-            'source_guess'  => $source_guess,
-            'event_type'    => $e->event_type,
-            'guid'          => $e->record_guid,
-        ];
-    });
-
-    $summary = [
-        'total'            => $rows->count(),
-        'have_display_name'=> $withComputed->whereNotNull('display_name')->count(),
-        'no_person_code'   => $rows->filter(fn($e)=>empty($e->person_code))->count(),
-        'no_card_number'   => $rows->filter(fn($e)=>empty($e->card_number))->count(),
-        'no_photo_url'     => $rows->filter(fn($e)=>empty($e->photo_url))->count(),
-        'by_event_type'    => $rows->groupBy('event_type')->map->count(),
-        'by_source_guess'  => $withComputed->groupBy('source_guess')->map->count(),
-    ];
-
-    return response()->json([
-        'ok'      => true,
-        'tz'      => $tz,
-        'start'   => $start->toIso8601String(),
-        'end'     => $end->toIso8601String(),
-        'summary' => $summary,
-        'data'    => $withComputed,
-    ]);
-});
 
 
 Route::get('/admin/acs/daily', [AdminAcsDailyController::class, 'index'])->name('acs.daily.index');
@@ -91,7 +44,8 @@ Route::middleware(['web','auth']) // yahan apna admin middleware add kar saktay 
         Route::get('/attendances', [AttendanceAdminController::class, 'index'])
             ->name('attendances.index');
     });
-
+Route::post('/admin/attendances/sync-now', [AttendanceAdminController::class, 'syncNow'])
+    ->name('admin.attendances.syncNow');
 Route::get('/', function () {
     return view('welcome');
 })->name('welcome');

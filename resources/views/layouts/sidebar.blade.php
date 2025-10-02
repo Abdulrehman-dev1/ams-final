@@ -19,7 +19,7 @@
                                 <a href="javascript:void(0);" class="waves-effect"><i class="ti-user"></i><span> Employees <span class="float-right menu-arrow"><i class="mdi mdi-chevron-right"></i></span> </span></a>
                                 <ul class="submenu">
                                     <li>
-                                        <a href="/public/employees" class="waves-effect {{ request()->is("employees") || request()->is("/employees/*") ? "mm active" : "" }}"><i class="dripicons-view-apps"></i><span>Employees List</span></a>
+                                        <a href="/public/admin/daily-people" class="waves-effect {{ request()->is("daily-people") || request()->is("/daily-people/*") ? "mm active" : "" }}"><i class="dripicons-view-apps"></i><span>Employees List</span></a>
                                     </li>
                                    
                                 </ul>
@@ -28,11 +28,6 @@
                             <li class="menu-title">Management</li>
 
                             <li class="">
-                                <a href="/public/schedule" class="waves-effect {{ request()->is("schedule") || request()->is("schedule/*") ? "mm active" : "" }}">
-                                    <i class="ti-time"></i> <span> Schedule </span>
-                                </a>
-                            </li>
-                            <li class="">
                                 <a href="/public/admin/attendances" class="waves-effect {{ request()->is("attendances") || request()->is("attendances/*") ? "mm active" : "" }}">
                                     <i class="dripicons-to-do"></i> <span> Attendance Sheet </span>
                                 </a>
@@ -40,6 +35,11 @@
                             <li class="">
                                 <a href="/public/admin/acs/daily" class="waves-effect {{ request()->is("dailydaily") || request()->is("daily/*") ? "mm active" : "" }}">
                                     <i class="dripicons-to-do"></i> <span>Daily Attendance</span>
+                                </a>
+                            </li>
+                            <li class="">
+                                <a href="/public/schedule" class="waves-effect {{ request()->is("schedule") || request()->is("schedule/*") ? "mm active" : "" }}">
+                                    <i class="ti-time"></i> <span> Schedule </span>
                                 </a>
                             </li>
                             <li class="">
