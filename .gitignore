@@ -28,3 +28,7 @@ Homestead.json
 .env.production
 .phpactor.json
 auth.json
+tests/*
+drivers/*
+drivers
+chromedriver-win64/chromedriver.exe
