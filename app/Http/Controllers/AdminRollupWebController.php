@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 
-class AdminAcsDailyController extends Controller
+class AdminRollupWebController extends Controller
 {
     /**
      * Live ACS-only daily view (no attendance table).

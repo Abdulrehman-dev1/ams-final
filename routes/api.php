@@ -18,6 +18,7 @@ use App\Http\Controllers\DailyAttendanceController;
 */
 // routes/api.php
 Route::post('/hik/persons/sync', [AttendanceController::class, 'syncPersonsFromHik']);
+Route::post('/hik/attendance/import', [\App\Http\Controllers\HikAttendanceImportController::class, 'import']);
 
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
@@ -40,3 +41,17 @@ Route::get('/attendance/rollup', [DailyAttendanceController::class, 'index']);
 
 // Debugging timeline of raw ACS events for a day
 Route::get('/attendance/rollup/timeline', [DailyAttendanceController::class, 'timeline']);
+
+// Dashboard Widget Drill-down APIs
+Route::prefix('dashboard/widgets')->group(function () {
+    Route::get('/total-employees', [\App\Http\Controllers\DashboardWidgetController::class, 'totalEmployees']);
+    Route::get('/on-time', [\App\Http\Controllers\DashboardWidgetController::class, 'onTime']);
+    Route::get('/late', [\App\Http\Controllers\DashboardWidgetController::class, 'late']);
+    Route::get('/mobile-checkins', [\App\Http\Controllers\DashboardWidgetController::class, 'mobileCheckins']);
+    Route::get('/device-checkins', [\App\Http\Controllers\DashboardWidgetController::class, 'deviceCheckins']);
+    Route::get('/early-leave', [\App\Http\Controllers\DashboardWidgetController::class, 'earlyLeave']);
+    Route::get('/absent', [\App\Http\Controllers\DashboardWidgetController::class, 'absent']);
+    Route::get('/overtime', [\App\Http\Controllers\DashboardWidgetController::class, 'overtime']);
+    Route::get('/pending-leaves', [\App\Http\Controllers\DashboardWidgetController::class, 'pendingLeaves']);
+    Route::get('/device-status', [\App\Http\Controllers\DashboardWidgetController::class, 'deviceStatus']);
+});

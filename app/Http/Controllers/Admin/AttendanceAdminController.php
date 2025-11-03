@@ -43,10 +43,14 @@ class AttendanceAdminController extends Controller
         'leave_types'=>'Leave types',
     ];
 
-    // Target date: agar query me ?date= ho to use, warna Asia/Karachi ka "kal"
-    $targetDate = $request->filled('date')
-        ? Carbon::parse($request->input('date'))->toDateString()
-        : Carbon::yesterday('Asia/Karachi')->toDateString();
+    // Target date: agar query me ?date= ho to use, warna latest available date
+    if ($request->filled('date')) {
+        $targetDate = Carbon::parse($request->input('date'))->toDateString();
+    } else {
+        // Use latest date that has data, fallback to yesterday
+        $latestDate = Attendance::max('check_in_date');
+        $targetDate = $latestDate ?: Carbon::yesterday('Asia/Karachi')->toDateString();
+    }
 
     $q = Attendance::query()
         ->select($columns)

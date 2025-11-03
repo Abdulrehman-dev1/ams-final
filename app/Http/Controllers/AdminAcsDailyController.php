@@ -39,7 +39,11 @@ class AdminAcsDailyController extends Controller
             $start = $from;
             $end   = $to;
         } else {
-            if (!$date) $date = now($tz)->toDateString();
+            // Use latest date that has data, fallback to today
+            if (!$date) {
+                $latestDate = AcsEvent::max('occur_date_pk');
+                $date = $latestDate ?: now($tz)->toDateString();
+            }
             $start = Carbon::parse($date, $tz)->startOfDay();
             $end   = Carbon::parse($date, $tz)->endOfDay();
         }

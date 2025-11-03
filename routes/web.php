@@ -5,9 +5,9 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\FingerDevicesControlller;
 use App\Http\Controllers\Admin\AttendanceAdminController;
-use App\Http\Controllers\AdminRollupWebController; 
-use App\Http\Controllers\AdminAcsDailyController; 
-use App\Http\Controllers\AttendanceController; 
+use App\Http\Controllers\AdminRollupWebController;
+use App\Http\Controllers\AdminAcsDailyController;
+use App\Http\Controllers\AttendanceController;
 use Illuminate\Http\Request;
 use App\Models\AcsEvent;
 use Illuminate\Support\Carbon;
@@ -43,12 +43,42 @@ Route::middleware(['web','auth']) // yahan apna admin middleware add kar saktay 
     ->group(function () {
         Route::get('/attendances', [AttendanceAdminController::class, 'index'])
             ->name('attendances.index');
+
+        // HikCentral Connect Routes
+        Route::get('/hcc/attendance', [\App\Http\Controllers\HccAttendanceController::class, 'index'])
+            ->name('hcc.attendance.index');
+        Route::post('/hcc/sync-recent', [\App\Http\Controllers\HccAttendanceController::class, 'syncRecent'])
+            ->name('hcc.sync.recent');
+        Route::post('/hcc/sync-devices', [\App\Http\Controllers\HccAttendanceController::class, 'syncDevices'])
+            ->name('hcc.sync.devices');
+        Route::get('/hcc/devices', [\App\Http\Controllers\HccAttendanceController::class, 'devices'])
+            ->name('hcc.devices.index');
+        Route::get('/hcc/backfill', [\App\Http\Controllers\HccAttendanceController::class, 'backfillForm'])
+            ->name('hcc.backfill.form');
+        Route::post('/hcc/backfill', [\App\Http\Controllers\HccAttendanceController::class, 'backfill'])
+            ->name('hcc.backfill.process');
+        Route::get('/hcc/attendance/{id}', [\App\Http\Controllers\HccAttendanceController::class, 'show'])
+            ->name('hcc.attendance.show');
     });
 Route::post('/admin/attendances/sync-now', [AttendanceAdminController::class, 'syncNow'])
     ->name('admin.attendances.syncNow');
 Route::get('/', function () {
     return view('welcome');
 })->name('welcome');
+
+// Debug endpoint to check date logic
+Route::get('/debug/dashboard-date', function() {
+    $tz = config('attendance.timezone', 'Asia/Karachi');
+    $today = \Carbon\Carbon::now($tz)->toDateString();
+    $latest = \App\Models\AcsEvent::max('occur_date_pk');
+
+    return response()->json([
+        'today' => $today,
+        'latest_acs_date' => $latest,
+        'will_use' => $latest ?: $today,
+        'acs_count' => \App\Models\AcsEvent::count(),
+    ]);
+});
 Route::get('attended/{user_id}', '\App\Http\Controllers\AttendanceController@attended' )->name('attended');
 Route::get('attended-before/{user_id}', '\App\Http\Controllers\AttendanceController@attendedBefore' )->name('attendedBefore');
 Auth::routes(['register' => false, 'reset' => false]);
@@ -57,7 +87,7 @@ Route::group(['middleware' => ['auth', 'Role'], 'roles' => ['admin']], function 
     Route::resource('/employees', '\App\Http\Controllers\EmployeeController');
     Route::resource('/employees', '\App\Http\Controllers\EmployeeController');
     Route::get('/attendance', '\App\Http\Controllers\AttendanceController@index')->name('attendance');
-  
+
     Route::get('/latetime', '\App\Http\Controllers\AttendanceController@indexLatetime')->name('indexLatetime');
     Route::get('/leave', '\App\Http\Controllers\LeaveController@index')->name('leave');
     Route::get('/overtime', '\App\Http\Controllers\LeaveController@indexOvertime')->name('indexOvertime');
@@ -69,7 +99,7 @@ Route::group(['middleware' => ['auth', 'Role'], 'roles' => ['admin']], function 
     Route::get('/check', '\App\Http\Controllers\CheckController@index')->name('check');
     Route::get('/sheet-report', '\App\Http\Controllers\CheckController@sheetReport')->name('sheet-report');
     Route::post('check-store','\App\Http\Controllers\CheckController@CheckStore')->name('check_store');
-    
+
     // Fingerprint Devices
     Route::resource('/finger_device', '\App\Http\Controllers\BiometricDeviceController');
 
@@ -85,7 +115,7 @@ Route::group(['middleware' => ['auth', 'Role'], 'roles' => ['admin']], function 
 
         return back();
     })->name('finger_device.clear.attendance');
-    
+
 
 });
 
@@ -95,7 +125,7 @@ Route::group(['middleware' => ['auth']], function () {
 
 
 
-    
+
 
 });
 

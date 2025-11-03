@@ -163,12 +163,55 @@ class AdminController extends Controller
             $onTimePct,  // On Time %
         ];
 
+        // Calculate additional stats for the dashboard
+        $avgCheckinTime = 'N/A';
+        if (count($summaries) > 0) {
+            $totalMinutes = 0;
+            $validCount = 0;
+            foreach ($summaries as $s) {
+                if ($s['first']) {
+                    $totalMinutes += $s['first']->hour * 60 + $s['first']->minute;
+                    $validCount++;
+                }
+            }
+            if ($validCount > 0) {
+                $avgMins = round($totalMinutes / $validCount);
+                $avgCheckinTime = sprintf('%02d:%02d', floor($avgMins / 60), $avgMins % 60);
+            }
+        }
+
+        // Count overtime (stayed after shift end)
+        $overtimeCount = 0;
+        foreach ($summaries as $s) {
+            if ($s['last'] && $s['last']->format('H:i:00') > $shiftOffTime) {
+                $overtimeCount++;
+            }
+        }
+
+        // Sync health (placeholder - you can connect this to your ACS sync logic)
+        $lastSync = AcsEvent::max('created_at') ?? now();
+        $lastSyncCarbon = is_string($lastSync) ? Carbon::parse($lastSync) : Carbon::instance($lastSync);
+        $syncHealthy = $lastSyncCarbon->diffInMinutes(now()) < 30; // healthy if synced in last 30 min
+
         $more = [
             'mobile_checkins_today' => $mobileCheckins,
             'device_checkins_today' => $deviceCheckins,
             'early_leave_today'     => $earlyLeave,
             'absent_today'          => $absent,
-            'focus_date'            => $focus, // optional to show
+            'focus_date'            => $focus,
+            'is_today'              => $isToday,
+            'sync_healthy'          => $syncHealthy,
+            'last_sync'             => $lastSyncCarbon->diffForHumans(),
+            'avg_checkin_time'      => $avgCheckinTime,
+            'overtime_count'        => $overtimeCount,
+            'pending_leaves'        => 0, // You can connect this to your leaves module
+            'active_devices'        => \App\Models\FingerDevices::count(), // All devices considered active
+            'total_devices'         => \App\Models\FingerDevices::count(),
+            'config'                => [
+                'on_time_cutoff'    => $cutOffOnTime,
+                'absent_cutoff'     => $absentCutTime,
+                'shift_end_time'    => $shiftOffTime,
+            ],
         ];
 
         return view('admin.index', compact('data','more'));

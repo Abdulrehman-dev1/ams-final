@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Vite;
 
 
 class AppServiceProvider extends ServiceProvider
@@ -26,7 +28,19 @@ class AppServiceProvider extends ServiceProvider
    
 public function boot(): void
 {
-    // ...your code...
     Paginator::useBootstrap();   // or useBootstrap() for BS4 projects
+
+    // Fallback: neutralize @vite directive in Blade for Mix-based setup
+    Blade::directive('vite', function () {
+        return '';
+    });
+
+        // Ensure Vite uses our manifest path so lookups succeed
+        try {
+            Vite::useBuildDirectory('build');
+            Vite::useManifest(public_path('build/manifest.json'));
+        } catch (\Throwable $e) {
+            // ignore if not supported in this framework version
+        }
 }
 }

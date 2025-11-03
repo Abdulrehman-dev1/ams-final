@@ -20,8 +20,10 @@ return [
         'endpoint' => env('MAILGUN_ENDPOINT', 'api.mailgun.net'),
     ],
     'hik' => [
-        'base_url' => env('HIK_BASE_URL', 'https://isgp.hikcentralconnect.com/api/hccgw'),
-        'token'    => env('HIK_TOKEN'),
+        'base_url'   => env('HIK_BASE_URL', 'https://isgp.hikcentralconnect.com/api/hccgw'),
+        'token'      => env('HIK_TOKEN'),
+        'app_key'    => env('HIK_APP_KEY'),
+        'secret_key' => env('HIK_SECRET_KEY'),
     ],
 
     'postmark' => [
