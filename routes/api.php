@@ -6,6 +6,7 @@ use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\PersonController;
 use App\Http\Controllers\AcsEventSyncController;
 use App\Http\Controllers\DailyAttendanceController;
+use App\Http\Controllers\HikTokenController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -17,6 +18,7 @@ use App\Http\Controllers\DailyAttendanceController;
 |
 */
 // routes/api.php
+Route::post('/hik/token/refresh', [HikTokenController::class, 'refresh'])->name('hik.token.refresh');
 Route::post('/hik/persons/sync', [AttendanceController::class, 'syncPersonsFromHik']);
 Route::post('/hik/attendance/import', [\App\Http\Controllers\HikAttendanceImportController::class, 'import']);
 
@@ -54,4 +56,10 @@ Route::prefix('dashboard/widgets')->group(function () {
     Route::get('/overtime', [\App\Http\Controllers\DashboardWidgetController::class, 'overtime']);
     Route::get('/pending-leaves', [\App\Http\Controllers\DashboardWidgetController::class, 'pendingLeaves']);
     Route::get('/device-status', [\App\Http\Controllers\DashboardWidgetController::class, 'deviceStatus']);
+});
+
+// Playwright Scraper API Endpoints
+Route::prefix('playwright')->group(function () {
+    Route::post('/save-attendance', [\App\Http\Controllers\Api\PlaywrightController::class, 'saveAttendance']);
+    Route::post('/save-devices', [\App\Http\Controllers\Api\PlaywrightController::class, 'saveDevices']);
 });

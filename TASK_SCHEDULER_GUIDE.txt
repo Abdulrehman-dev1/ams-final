@@ -1,0 +1,156 @@
+===============================================================================
+    HCC LIVE SYNC - TASK SCHEDULER SETUP (Every 1 Minute)
+===============================================================================
+
+STEP 1: Open Task Scheduler
+----------------------------
+- Press: Win + R
+- Type: taskschd.msc
+- Press: Enter
+
+
+STEP 2: Create New Task
+------------------------
+- Click: "Create Task" (on right side - NOT "Create Basic Task")
+
+
+STEP 3: General Tab
+-------------------
+Name: HCC Live Sync
+Description: Real-time HCC attendance sync (every 1 minute)
+
+☑ Run whether user is logged on or not
+☑ Run with highest privileges
+Configure for: Windows 10
+
+
+STEP 4: Triggers Tab
+--------------------
+Click "New..."
+
+Begin the task: On a schedule
+Settings: Daily
+Start: [Today's date] at 12:00:00 AM
+Recur every: 1 days
+
+Advanced settings:
+☑ Repeat task every: 1 minute
+☑ For a duration of: Indefinitely
+☑ Enabled
+
+Click "OK"
+
+
+STEP 5: Actions Tab
+-------------------
+Click "New..."
+
+Action: Start a program
+Program/script: D:\ams-final\scripts\run_auto_sync_live.bat
+Start in: D:\ams-final\scripts
+
+Click "OK"
+
+
+STEP 6: Conditions Tab
+----------------------
+Power:
+☐ Start the task only if the computer is on AC power
+☐ Stop if the computer switches to battery power
+
+
+STEP 7: Settings Tab
+--------------------
+☑ Allow task to be run on demand
+☑ Run task as soon as possible after a scheduled start is missed
+☑ If the task fails, restart every: 1 minute (Attempt to restart up to: 3 times)
+
+If the task is already running, then the following rule applies:
+○ Do not start a new instance
+
+☐ Stop the task if it runs longer than: [UNCHECKED]
+
+Click "OK"
+
+
+STEP 8: Save & Enter Password
+-----------------------------
+- Click "OK" on main dialog
+- Enter your Windows password
+- Click "OK"
+
+
+===============================================================================
+    VERIFICATION
+===============================================================================
+
+1. Task Scheduler → Task Scheduler Library
+2. Find "HCC Live Sync"
+3. Right-click → Run (to test immediately)
+4. Check "Last Run Time" - should show current time
+5. Check "Last Run Result" - should be (0x0)
+6. Wait 1 minute, check if "Last Run Time" updates
+
+
+===============================================================================
+    MONITORING
+===============================================================================
+
+Check logs:
+D:\ams-final\storage\logs\hcc-live-sync.log
+
+Or in PowerShell:
+Get-Content D:\ams-final\storage\logs\hcc-live-sync.log -Tail 20 -Wait
+
+
+Check database:
+php artisan tinker
+>>> \App\Models\HccAttendanceTransaction::count()
+>>> \App\Models\HccAttendanceTransaction::whereDate('attendance_date', today())->count()
+
+
+===============================================================================
+    TROUBLESHOOTING
+===============================================================================
+
+Task not running?
+- Check Task Scheduler → Task History
+- Enable history: Actions → Enable All Tasks History
+- Check if previous task is still running
+
+Script fails?
+- Run manually: D:\ams-final\scripts\run_auto_sync_live.bat
+- Check error in: storage\logs\hcc-live-sync.log
+
+Too slow?
+- Change .env: PLAYWRIGHT_HEADLESS=true
+- Reduce PLAYWRIGHT_SLOW_MO=0
+
+Cookie expired?
+- Run: python hcc_debug_browser.py (headed mode)
+- Get new cookie manually
+- Update HCC_COOKIE in .env
+
+
+===============================================================================
+    PRODUCTION SETTINGS (.env)
+===============================================================================
+
+PLAYWRIGHT_HEADLESS=true       # No browser window
+PLAYWRIGHT_SLOW_MO=0           # Maximum speed
+PLAYWRIGHT_TIMEOUT=45000       # 45 seconds timeout
+HCC_COOKIE="your_cookie_here"  # Keep updated
+
+
+===============================================================================
+    PERFORMANCE
+===============================================================================
+
+Each sync takes: ~15-30 seconds
+Running every: 1 minute
+CPU usage: Low (headless mode)
+Memory: ~200MB per run
+
+
+===============================================================================
+

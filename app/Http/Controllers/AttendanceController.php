@@ -732,20 +732,22 @@ public function dailyPeopleSyncNow(Request $req)
     $data = $resp->getData(true);
 
     if ($code >= 400 || empty($data['ok'])) {
-        return redirect()->route('acs.people.index')->with('flash', [  // <-- changed
-            'ok'      => false,
-            'message' => $data['msg'] ?? 'Sync failed',
-            'stats'   => $data,
+        return redirect()->route('acs.people.index')->with([
+            'alert_type' => 'error',
+            'alert_title' => 'Sync Failed',
+            'alert_message' => $data['msg'] ?? 'Failed to sync employees from Hikvision',
         ]);
     }
 
     $ins = $data['inserted'] ?? 0;
     $upd = $data['updated']  ?? 0;
+    $total = $data['total_seen'] ?? ($ins + $upd);
 
-    return redirect()->route('acs.people.index')->with('flash', [      // <-- changed
-        'ok'      => true,
-        'message' => "Inserted {$ins}, Updated {$upd}",
-        'stats'   => $data,
+    return redirect()->route('acs.people.index')->with([
+        'alert_type' => 'success',
+        'alert_title' => 'Sync Successful!',
+        'alert_message' => "Successfully synced {$total} employees from Hikvision",
+        'alert_stats' => "Inserted: {$ins} | Updated: {$upd}",
     ]);
 }
 

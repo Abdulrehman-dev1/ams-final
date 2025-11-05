@@ -74,7 +74,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Dusk Scraper Configuration
+    | Dusk Scraper Configuration (Legacy - use Playwright instead)
     |--------------------------------------------------------------------------
     |
     | Credentials and URLs for browser automation scraper.
@@ -85,6 +85,18 @@ return [
     'dusk_password' => env('HCC_PASSWORD'),
     'dusk_login_url' => env('HCC_LOGIN_URL', 'https://www.hik-connect.com/views/login/index.html#/login'),
     'dusk_driver_url' => env('DUSK_DRIVER_URL', 'http://localhost:9515'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Python Playwright Configuration (Recommended)
+    |--------------------------------------------------------------------------
+    |
+    | Python Playwright is more stable and faster than Laravel Dusk.
+    | Make sure to run: cd scripts && pip install -r requirements.txt
+    |
+    */
+
+    'python_path' => env('PYTHON_PATH', 'python'),
 
     /*
     |--------------------------------------------------------------------------

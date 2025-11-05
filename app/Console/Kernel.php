@@ -24,6 +24,20 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
+        // Refresh HIK Token - Every 3 hours
+        $schedule->job(new \App\Jobs\RefreshHikTokenJob)
+            ->everyThreeHours()
+            ->withoutOverlapping()
+            ->runInBackground()
+            ->appendOutputTo(storage_path('logs/hik-token-refresh.log'));
+
+        // Sync HIK Employees - Every 6 hours
+        $schedule->job(new \App\Jobs\SyncHikEmployeesJob)
+            ->everySixHours()
+            ->withoutOverlapping()
+            ->runInBackground()
+            ->appendOutputTo(storage_path('logs/hik-employees-sync.log'));
+
         // HCC Attendance Scraping - Every 5 minutes (using table scraper)
         $schedule->command('hcc:scrape-table --from=' . now()->subDays(1)->format('Y-m-d') . ' --to=' . now()->format('Y-m-d'))
             ->everyFiveMinutes()

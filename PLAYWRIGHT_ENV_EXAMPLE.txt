@@ -1,0 +1,27 @@
+# ========================================
+# Add these to your .env file
+# ========================================
+
+# Python Playwright Configuration
+PYTHON_PATH=python
+PLAYWRIGHT_HEADLESS=true
+PLAYWRIGHT_TIMEOUT=30000
+PLAYWRIGHT_SLOW_MO=0
+
+# HikCentral Connect Credentials (REQUIRED)
+HCC_USERNAME=your_phone_number_or_email
+HCC_PASSWORD=your_password
+
+# HCC URLs
+HCC_LOGIN_URL=https://www.hik-connect.com/views/login/index.html#/login
+HCC_BASE_URL=https://isgp-team.hikcentralconnect.com
+
+# Get this via: php artisan hcc:playwright get-cookies
+HCC_COOKIE=
+
+# Timezone
+HCC_TIMEZONE=Asia/Karachi
+
+# Laravel
+APP_URL=http://localhost
+

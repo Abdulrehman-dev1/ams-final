@@ -22,29 +22,6 @@
     </div>
   </div>
 
-  {{-- Flash --}}
-  @php $flash = $flash ?? session('flash'); @endphp
-  @if(!empty($flash))
-    <div class="alert alert-{{ $flash['ok'] ? 'success' : 'warning' }} alert-dismissible fade show shadow-sm-2 card-flat" id="syncAlert" role="alert">
-      <div class="d-flex align-items-start">
-        <div class="me-2 mt-1">{!! $flash['ok'] ? '&#9989;' : '&#9888;&#65039;' !!}</div>
-        <div>
-          <strong>{{ $flash['ok'] ? 'Sync Successful' : 'Sync Completed (Warnings)' }}</strong>
-          @if(!empty($flash['message']))
-            <div class="small">{{ $flash['message'] }}</div>
-          @endif
-          @if(!empty($flash['stats']) && is_array($flash['stats']))
-            <div class="small text-muted mt-1">
-              @foreach($flash['stats'] as $k => $v)
-                <span class="me-2"><span class="text-dark">{{ ucfirst(str_replace('_',' ',$k)) }}:</span> {{ is_scalar($v) ? $v : json_encode($v) }}</span>
-              @endforeach
-            </div>
-          @endif
-        </div>
-      </div>
-      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-  @endif
 {{-- Filters: POST to session (no nested forms) --}}
 <form method="POST" action="{{ route('acs.people.filter') }}" class="card card-body mb-2 card-flat shadow-sm-2">
   @csrf
@@ -177,16 +154,27 @@
 @endsection
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-  // Auto-hide sync alert after 4.5s
-  setTimeout(() => {
-    const el = document.getElementById('syncAlert');
-    if (!el) return;
-    if (window.bootstrap && bootstrap.Alert) {
-      bootstrap.Alert.getOrCreateInstance(el).close();
-    } else {
-      el.remove();
-    }
-  }, 4500);
+  @if(session('alert_type'))
+    Swal.fire({
+      icon: '{{ session("alert_type") }}',
+      title: '{{ session("alert_title") }}',
+      html: '<div style="text-align: left;">' +
+            '<p>{{ session("alert_message") }}</p>' +
+            @if(session('alert_stats'))
+            '<hr style="margin: 10px 0;">' +
+            '<small class="text-muted">{{ session("alert_stats") }}</small>' +
+            @endif
+            '</div>',
+      showConfirmButton: true,
+      confirmButtonText: 'OK',
+      timer: 5000,
+      timerProgressBar: true,
+      customClass: {
+        confirmButton: 'btn btn-primary'
+      }
+    });
+  @endif
 </script>
 @endpush
