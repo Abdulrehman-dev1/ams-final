@@ -45,8 +45,16 @@ def main():
     
     php_script = os.path.join(script_dir, 'save_api_data.php')
     
+    # Detect OS and use correct PHP path
+    if os.path.exists('/usr/local/lsws/lsphp82/bin/php'):
+        php_path = '/usr/local/lsws/lsphp82/bin/php'  # Linux server
+    elif os.path.exists('/usr/bin/php'):
+        php_path = '/usr/bin/php'
+    else:
+        php_path = 'php'  # Windows fallback
+    
     result2 = subprocess.run(
-        ['php', php_script],
+        [php_path, php_script],
         cwd=script_dir,
         capture_output=False,  # Show output live
         text=True,
