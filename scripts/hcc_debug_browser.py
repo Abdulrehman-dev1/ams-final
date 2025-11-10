@@ -2,7 +2,7 @@
 HCC Browser Debug Script - Sab kuch visible mode mein
 """
 import asyncio
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
 import requests
 import json
 from datetime import datetime, timedelta
@@ -418,11 +418,14 @@ async def main():
         await page.screenshot(path='after_filter.png')
         print("   📸 Screenshot: after_filter.png")
         
-        # Step 14: Extract data from table
-        print("\n📊 Extracting data from table...")
+        # Step 14: Extract data from table (optional - API method is preferred and more reliable)
+        print("\n📊 Attempting table extraction (optional, API method is preferred)...")
+        table_extraction_failed = False
+        table_data = []
         try:
-            # Wait for table to be visible
-            await page.wait_for_selector('table tbody tr', timeout=10000)
+            # Wait for table to be visible (short timeout since API method is preferred)
+            # If table doesn't appear quickly, we'll use API method which is more reliable
+            await page.wait_for_selector('table tbody tr', timeout=3000)
             
             # Extract ALL table data with COMPLETE fields (including location details)
             table_data = await page.evaluate('''
@@ -557,10 +560,16 @@ async def main():
             else:
                 print("   ⚠️ No data in table")
                 
+        except PlaywrightTimeoutError:
+            # Table scraping timeout is expected and OK - API method is preferred
+            print(f"   ⚠️ Table not ready (timeout after 3s) - this is OK!")
+            print(f"   💡 Using API method instead (more reliable and has complete data)")
+            table_extraction_failed = True
         except Exception as e:
-            print(f"   ⚠️ Table extraction error: {e}")
-            import traceback
-            traceback.print_exc()
+            # Other errors in table extraction - not critical, API method will work
+            print(f"   ⚠️ Table extraction skipped: {str(e)[:100]}")
+            print(f"   💡 Continuing with API method (preferred and more reliable)")
+            table_extraction_failed = True
         
         # Go to HCC site
         url = f"{config.base_url}/hcc/hccattendance/report/v1/list"

@@ -3,85 +3,129 @@
 @section('content')
 <div class="container-fluid">
 
-  {{-- Header --}}
-  <div class="d-flex align-items-center justify-content-between mb-3">
-    <h4 class="mb-0">Daily Attendance</h4>
-    <div class="d-flex gap-2">
-      {{-- Quick Reload (no server sync) --}}
-      <a href="{{ route('acs.daily.index', request()->query()) }}" class="btn btn-outline-secondary btn-icon">
-        <i class="bi bi-arrow-clockwise"></i> Reload
-      </a>
-      {{-- Sync Now --}}
-      <form action="{{ route('acs.daily.syncNow', request()->query()) }}" method="POST"
-            onsubmit="this.querySelector('button').disabled=true;">
-        @csrf
-        <button type="submit" class="ml-3 btn btn-primary btn-icon">
-          <i class="bi bi-cloud-arrow-down"></i> Sync Now
-        </button>
-      </form>
+  {{-- Modern Header --}}
+  <div class="modern-card mb-4">
+    <div class="modern-card-body">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div>
+          <h2 class="mb-1" style="font-weight: 700; color: var(--gray-900);">
+            <i class="bi bi-calendar-day me-2" style="color: var(--primary);"></i>
+            Daily Attendance
+          </h2>
+          <p class="text-muted mb-0" style="font-size: 0.875rem;">Manage and track daily attendance records</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+          {{-- Quick Reload --}}
+          <a href="{{ route('acs.daily.index', request()->query()) }}" class="btn-modern btn-modern-primary" style="background: var(--gray-600);">
+            <i class="bi bi-arrow-clockwise"></i>
+            <span>Reload</span>
+          </a>
+          {{-- Sync Now (API) --}}
+          <form action="{{ route('acs.daily.syncNow', request()->query()) }}" method="POST"
+                onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').innerHTML='<span class=\'modern-loader\'></span> Syncing...';"
+                class="d-inline">
+            @csrf
+            <button type="submit" class="btn-modern btn-modern-primary">
+              <i class="bi bi-cloud-arrow-down"></i>
+              <span>Sync Now</span>
+            </button>
+          </form>
+          {{-- Sync Scraper (Python Playwright) --}}
+          <form action="{{ route('acs.daily.syncScraper', request()->query()) }}" method="POST"
+                onsubmit="
+                  const btn = this.querySelector('button');
+                  btn.disabled = true;
+                  btn.innerHTML = '<span class=\"modern-loader\"></span> Starting...';
+                  return true;
+                "
+                class="d-inline">
+            @csrf
+            <button type="submit" class="btn-modern btn-modern-warning" title="Run Python Playwright scraper to fetch attendance data">
+              <i class="bi bi-robot"></i>
+              <span>Sync Scraper</span>
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   </div>
 
-  {{-- Flash (sync results) - reads $flash OR session("flash") --}}
+  {{-- Modern Flash Alert --}}
   @php $flash = $flash ?? session('flash'); @endphp
   @if(!empty($flash))
-    <div class="alert alert-{{ $flash['ok'] ? 'success' : 'warning' }} alert-dismissible fade show shadow-sm-2 card-flat" id="syncAlert" role="alert">
-      <div class="d-flex align-items-start">
-        <div class="me-2 mt-1">{!! $flash['ok'] ? '&#9989;' : '&#9888;&#65039;' !!}</div>
-        <div>
-          <strong>{{ $flash['ok'] ? 'Sync Successful' : 'Sync Completed (Warnings)' }}</strong>
-          @if(!empty($flash['message']))
-            <div class="small">{{ $flash['message'] }}</div>
-          @endif
-          @if(!empty($flash['stats']) && is_array($flash['stats']))
-            <div class="small text-muted mt-1">
-              @foreach($flash['stats'] as $k => $v)
-                <span class="me-2"><span class="text-dark">{{ ucfirst(str_replace('_',' ',$k)) }}:</span> {{ $v }}</span>
-              @endforeach
-            </div>
-          @endif
-          @if(empty($flash['message']) && empty($flash['stats']))
-            <details class="small mt-1"><summary>Details</summary>
-              <pre class="mb-0" style="white-space:pre-wrap">{{ json_encode($flash, JSON_PRETTY_PRINT) }}</pre>
-            </details>
-          @endif
-        </div>
+    <div class="modern-alert modern-alert-{{ $flash['ok'] ? 'success' : 'warning' }} fade-in" id="syncAlert" role="alert">
+      <div>
+        <i class="bi {{ $flash['ok'] ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill' }}" style="font-size: 1.5rem;"></i>
       </div>
-      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      <div style="flex: 1;">
+        <strong style="font-size: 1rem; display: block; margin-bottom: 0.5rem;">
+          {{ $flash['ok'] ? ($flash['type'] === 'scraper' ? 'Scraper Sync Started' : 'Sync Successful') : 'Sync Failed' }}
+        </strong>
+        @if(!empty($flash['message']))
+          <div style="font-size: 0.875rem; margin-bottom: 0.5rem;">{{ $flash['message'] }}</div>
+        @endif
+        @if(!empty($flash['stats']) && is_array($flash['stats']))
+          <div style="font-size: 0.875rem; margin-top: 0.5rem;">
+            @foreach($flash['stats'] as $k => $v)
+              <span class="modern-badge modern-badge-primary me-2">
+                {{ ucfirst(str_replace('_',' ',$k)) }}: {{ $v }}
+              </span>
+            @endforeach
+          </div>
+        @endif
+        @if(!empty($flash['type']) && $flash['type'] === 'scraper' && $flash['ok'])
+          <div style="font-size: 0.875rem; margin-top: 0.75rem; padding: 0.75rem; background: rgba(255,255,255,0.5); border-radius: var(--radius);">
+            <i class="bi bi-info-circle me-2"></i>
+            The scraper is running in the background.
+            @if(!empty($flash['log_file']))
+              Check <code style="background: rgba(0,0,0,0.1); padding: 0.2rem 0.4rem; border-radius: 0.25rem;">storage/logs/{{ $flash['log_file'] }}</code> for progress.
+            @endif
+            Refresh this page in 1-2 minutes to see updated data.
+          </div>
+        @endif
+      </div>
+      <button type="button" class="btn-close" onclick="this.parentElement.remove()" aria-label="Close"></button>
     </div>
   @endif
 
-  {{-- Filters --}}
-  <form method="GET" action="{{ route('acs.daily.index') }}" class="card card-body mb-2 card-flat shadow-sm-2">
+  {{-- Modern Filters --}}
+  <div class="modern-card mb-4">
+    <div class="modern-card-header">
+      <h5 class="mb-0" style="font-weight: 600;">
+        <i class="bi bi-funnel me-2" style="color: var(--primary);"></i>
+        Filters
+      </h5>
+    </div>
+    <form method="GET" action="{{ route('acs.daily.index') }}" class="modern-card-body">
     <div class="row g-2">
       <div class="col-md-2">
-        <label class="form-label mini">From</label>
-        <input type="date" name="date_from" value="{{ $filters['date_from'] ?? '' }}" class="form-control">
+        <label class="modern-form-label">From</label>
+        <input type="date" name="date_from" value="{{ $filters['date_from'] ?? '' }}" class="modern-form-input">
       </div>
       <div class="col-md-2">
-        <label class="form-label mini">To</label>
-        <input type="date" name="date_to" value="{{ $filters['date_to'] ?? '' }}" class="form-control">
+        <label class="modern-form-label">To</label>
+        <input type="date" name="date_to" value="{{ $filters['date_to'] ?? '' }}" class="modern-form-input">
       </div>
 
       <div class="col-md-3">
-        <label class="form-label mini">Name</label>
-        <input type="text" name="name" value="{{ $filters['name'] ?? '' }}" class="form-control" placeholder="e.g. Sohail">
+        <label class="modern-form-label">Name</label>
+        <input type="text" name="name" value="{{ $filters['name'] ?? '' }}" class="modern-form-input" placeholder="e.g. Sohail">
       </div>
       <div class="col-md-2">
-        <label class="form-label mini">Person Code</label>
-        <input type="text" name="person_code" value="{{ $filters['person_code'] ?? '' }}" class="form-control">
+        <label class="modern-form-label">Person Code</label>
+        <input type="text" name="person_code" value="{{ $filters['person_code'] ?? '' }}" class="modern-form-input">
       </div>
 
       {{-- Optional single-date (fallback if range empty) --}}
       <div class="col-md-2">
-        <label class="form-label mini">Date</label>
-        <input type="date" name="date" value="{{ $filters['date'] ?? ($filters['date_from'] ?? $filters['date_to'] ?? now($tz)->toDateString()) }}" class="form-control">
+        <label class="modern-form-label">Date</label>
+        <input type="date" name="date" value="{{ $filters['date'] ?? ($filters['date_from'] ?? $filters['date_to'] ?? now($tz)->toDateString()) }}" class="modern-form-input">
       </div>
 
       <div class="col-md-2">
-        <label class="form-label mini mt-2">Per Page</label>
+        <label class="modern-form-label">Per Page</label>
         @php $pp = (int)($filters['perPage'] ?? 25); @endphp
-        <select name="perPage" class="form-control">
+        <select name="perPage" class="modern-form-input">
           @foreach([25,50,100,200] as $opt)
             <option value="{{ $opt }}" {{ $pp===$opt?'selected':'' }}>{{ $opt }}</option>
           @endforeach
@@ -89,11 +133,18 @@
       </div>
 
       <div class="col-md-4 d-flex align-items-end gap-2">
-        <button class="btn btn-success btn-icon mr-3"><i class="bi bi-funnel"></i> Apply</button>
-        <a href="{{ route('acs.daily.index') }}" class="btn btn-outline-secondary">Reset</a>
+        <button class="btn-modern btn-modern-success">
+          <i class="bi bi-funnel"></i>
+          <span>Apply</span>
+        </button>
+        <a href="{{ route('acs.daily.index') }}" class="btn-modern" style="background: var(--gray-600); color: white;">
+          <i class="bi bi-arrow-counterclockwise"></i>
+          <span>Reset</span>
+        </a>
       </div>
     </div>
-  </form>
+    </form>
+  </div>
 
   {{-- Filter summary chips --}}
   @php
@@ -110,20 +161,31 @@
     if(!empty($filters['source']))      $chips[] = ['label'=>'Source','val'=>$filters['source'],'dot'=>'#0dcaf0'];
   @endphp
 
-  <div class="d-flex align-items-center justify-content-between mb-2">
+  <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <div class="d-flex flex-wrap gap-2">
-      <span class="chip"><span class="dot" style="background:#0d6efd"></span> Total <strong>{{ $page->total() }}</strong></span>
+      <span class="modern-badge modern-badge-primary" style="font-size: 0.875rem; padding: 0.5rem 1rem;">
+        <i class="bi bi-list-ul me-1"></i> Total <strong>{{ $page->total() }}</strong>
+      </span>
       @foreach($chips as $c)
-        <span class="chip"><span class="dot" style="background:{{ $c['dot'] }}"></span> {{ $c['label'] }}: <strong>{{ $c['val'] }}</strong></span>
+        <span class="modern-badge" style="background: rgba(99, 102, 241, 0.1); color: var(--primary); font-size: 0.875rem; padding: 0.5rem 1rem;">
+          <span class="dot" style="background:{{ $c['dot'] }}; width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 0.5rem;"></span>
+          {{ $c['label'] }}: <strong>{{ $c['val'] }}</strong>
+        </span>
       @endforeach
     </div>
   </div>
 
-  {{-- Table --}}
-  <div class="card card-flat shadow-sm-2">
+  {{-- Modern Table --}}
+  <div class="modern-card">
+    <div class="modern-card-header">
+      <h5 class="mb-0" style="font-weight: 600;">
+        <i class="bi bi-table me-2" style="color: var(--primary);"></i>
+        Attendance Records
+      </h5>
+    </div>
     <div class="table-responsive">
-      <table class="table table-sm table-hover align-middle mb-0 table-sticky">
-        <thead class="table-light">
+      <table class="modern-table">
+        <thead>
           <tr>
             <th style="width:60px">#</th>
             <th style="width:70px">Photo</th>
@@ -171,9 +233,13 @@
               <div class="fw-semibold">{{ $outT }}</div>
             </td>
             <td>
-              <div class="small d-flex flex-column gap-1">
-                <span class="badge {{ $inSrc==='Mobile'?'text-bg-info':'text-bg-primary' }} badge-soft" data-bs-toggle="tooltip" title="First punch source">IN: {{ $inSrc ?: '—' }}</span>
-                <span class="badge {{ $outSrc==='Mobile'?'text-bg-info':'text-bg-primary' }} badge-soft" data-bs-toggle="tooltip" title="Last punch source">OUT: {{ $outSrc ?: '—' }}</span>
+              <div class="d-flex flex-column gap-1">
+                <span class="modern-badge {{ $inSrc==='Mobile'?'modern-badge-info':'modern-badge-primary' }}" data-bs-toggle="tooltip" title="First punch source">
+                  IN: {{ $inSrc ?: '—' }}
+                </span>
+                <span class="modern-badge {{ $outSrc==='Mobile'?'modern-badge-info':'modern-badge-primary' }}" data-bs-toggle="tooltip" title="Last punch source">
+                  OUT: {{ $outSrc ?: '—' }}
+                </span>
               </div>
             </td>
           </tr>
@@ -188,9 +254,13 @@
         </tbody>
       </table>
     </div>
-    <div class="card-footer d-flex justify-content-between align-items-center">
-      <div class="small text-muted">Total: {{ $page->total() }}</div>
-      {{ $page->links() }}
+    <div class="modern-card-footer d-flex justify-content-between align-items-center">
+      <div style="font-size: 0.875rem; color: var(--gray-600); font-weight: 500;">
+        <i class="bi bi-list-ul me-2"></i>Total: <strong>{{ $page->total() }}</strong> records
+      </div>
+      <div>
+        {{ $page->links() }}
+      </div>
     </div>
   </div>
 </div>

@@ -7,6 +7,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
+use Symfony\Component\Process\Process;
 
 class AdminAcsDailyController extends Controller
 {
@@ -327,7 +330,7 @@ class AdminAcsDailyController extends Controller
     }
 
     /**
-     * Optional: “Sync Now” — re-pull today’s ACS events via internal API then redirect back.
+     * Optional: "Sync Now" — re-pull today's ACS events via internal API then redirect back.
      */
     public function syncNow(Request $req)
     {
@@ -378,6 +381,100 @@ class AdminAcsDailyController extends Controller
         return redirect()
             ->route('acs.daily.index', request()->query())
             ->with('flash', ['ok' => true, 'message' => 'Pulled latest events from ACS.']);
+    }
+
+    /**
+     * Sync with Scraper — Run Python Playwright scraper (hcc:sync) to fetch attendance data.
+     * Runs in background to avoid web request timeout.
+     */
+    public function syncScraper(Request $req)
+    {
+        try {
+            Log::info('HCC Scraper sync initiated from Daily Attendance page');
+
+            $phpPath = PHP_BINARY;
+            $artisanPath = base_path('artisan');
+            $workingDir = base_path();
+            $logFile = storage_path('logs/hcc-sync-' . date('Y-m-d-His') . '.log');
+
+            // Get count before sync for later comparison
+            $countBefore = \App\Models\HccAttendanceTransaction::count();
+
+            // Handle Windows vs Unix-like systems for background execution
+            if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+                // Windows: Create a batch file to run the command in background
+                $batchFile = storage_path('logs/hcc-sync-' . time() . '.bat');
+                $batchContent = sprintf(
+                    '@echo off' . PHP_EOL .
+                    'cd /d "%s"' . PHP_EOL .
+                    'set PYTHONIOENCODING=utf-8' . PHP_EOL .
+                    'set PYTHONUTF8=1' . PHP_EOL .
+                    '"%s" "%s" hcc:sync >> "%s" 2>&1' . PHP_EOL .
+                    'del "%%~f0"' . PHP_EOL, // Delete batch file after execution
+                    $workingDir,
+                    $phpPath,
+                    $artisanPath,
+                    $logFile
+                );
+                file_put_contents($batchFile, $batchContent);
+                
+                // Start the batch file in background using start command
+                $command = sprintf(
+                    'start /B "" "%s"',
+                    $batchFile
+                );
+                pclose(popen($command, 'r'));
+            } else {
+                // Unix-like: Use nohup to run in background
+                $process = new Process(
+                    [
+                        'nohup',
+                        $phpPath,
+                        $artisanPath,
+                        'hcc:sync'
+                    ],
+                    $workingDir,
+                    [
+                        'PYTHONIOENCODING' => 'utf-8',
+                        'PYTHONUTF8' => '1',
+                    ],
+                    null,
+                    null
+                );
+                $process->setOptions(['create_new_console' => true]);
+                $process->start();
+            }
+
+            Log::info('HCC Scraper sync process started in background', [
+                'log_file' => $logFile,
+                'count_before' => $countBefore
+            ]);
+
+            // Return immediately - process runs in background
+            return redirect()
+                ->route('acs.daily.index', request()->query())
+                ->with('flash', [
+                    'ok' => true,
+                    'message' => 'Scraper sync started in background. It may take 1-2 minutes to complete. Please refresh the page after a moment to see updated data.',
+                    'type' => 'scraper',
+                    'log_file' => basename($logFile),
+                    'count_before' => $countBefore
+                ]);
+
+        } catch (\Exception $e) {
+            Log::error('HCC Scraper sync exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return redirect()
+                ->route('acs.daily.index', request()->query())
+                ->with('flash', [
+                    'ok' => false,
+                    'message' => 'Failed to start scraper sync: ' . $e->getMessage(),
+                    'type' => 'scraper'
+                ]);
+        }
     }
 
     // -------- Helpers --------

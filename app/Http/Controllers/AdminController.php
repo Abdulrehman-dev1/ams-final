@@ -15,9 +15,51 @@ class AdminController extends Controller
         $now   = Carbon::now($tz);
 
         // -------- cutoffs --------
-        $cutOffOnTime  = '09:30:00'; // first punch <= this => on time
+        // Default cutoffs (will be overridden by employee-specific schedules)
+        $defaultTimeIn  = '09:00:00';
+        $defaultTimeOut = '19:00:00';
+        $cutOffOnTime   = config('attendance.on_time_cutoff', '09:30:00');
+        $shiftOffTime = $defaultTimeOut;
         $absentCutTime = '10:00:00'; // present-by-10 rule
-        $shiftOffTime  = '19:00:00'; // last punch < this => early leave
+        
+        // Build employee schedule map (person_code => [time_in, time_out, late_cutoff])
+        $employeeSchedules = [];
+        $employees = DailyEmployee::where('is_enabled', true)
+            ->whereNotNull('person_code')
+            ->where('person_code', '!=', '')
+            ->select('person_code', 'time_in', 'time_out')
+            ->get();
+        
+        foreach ($employees as $emp) {
+            // Use accessor which provides default if null
+            $timeIn = $emp->time_in; // Returns '09:00:00' if null
+            $timeOut = $emp->time_out; // Returns '19:00:00' if null
+            
+            // Ensure time_in is in H:i:s format (handle both H:i and H:i:s)
+            if (strlen($timeIn) === 5) {
+                $timeIn .= ':00';
+            }
+            if (strlen($timeOut) === 5) {
+                $timeOut .= ':00';
+            }
+            
+            // Late cutoff = time_in + 15 minutes
+            try {
+                $timeInCarbon = Carbon::createFromFormat('H:i:s', $timeIn);
+                $lateCutoff = $timeInCarbon->copy()->addMinutes(15)->format('H:i:s');
+            } catch (\Exception $e) {
+                // Fallback to default if parsing fails
+                $timeInCarbon = Carbon::createFromFormat('H:i:s', $defaultTimeIn);
+                $lateCutoff = $timeInCarbon->copy()->addMinutes(15)->format('H:i:s');
+                $timeIn = $defaultTimeIn;
+            }
+            
+            $employeeSchedules[$emp->person_code] = [
+                'time_in' => $timeIn,
+                'time_out' => $timeOut,
+                'late_cutoff' => $lateCutoff,
+            ];
+        }
 
         // -------- focus date (like ACS live) --------
         $reqDate = request('date');
@@ -121,16 +163,43 @@ class AdminController extends Controller
             if ($s['first']) {
                 $arrivals++;
 
-                $t = $s['first']->format('H:i:00');
-                if ($t <= $cutOffOnTime) $onTime++; else $late++;
+                // Get employee-specific schedule or use defaults
+                $pc = self::cv($s['pc']);
+                if ($pc !== '' && isset($employeeSchedules[$pc])) {
+                    $schedule = $employeeSchedules[$pc];
+                    $lateCutoff = $schedule['late_cutoff'];
+                    $empTimeOut = $schedule['time_out'];
+                } else {
+                    // Use default: 9:00 + 15 minutes = 9:15
+                    $defaultTimeInCarbon = Carbon::createFromFormat('H:i:s', $defaultTimeIn);
+                    $lateCutoff = $defaultTimeInCarbon->copy()->addMinutes(15)->format('H:i:s');
+                    $empTimeOut = $defaultTimeOut;
+                }
+
+                $t = $s['first']->format('H:i:s');
+                if ($t <= $lateCutoff) {
+                    $onTime++;
+                } else {
+                    $late++;
+                }
 
                 if ($s['in_source'] === 'Mobile') $mobileCheckins++;
                 if ($s['in_source'] === 'Device') $deviceCheckins++;
             }
 
             if ($s['last']) {
-                $tOut = $s['last']->format('H:i:00');
-                if ($tOut < $shiftOffTime) $earlyLeave++;
+                // Get employee-specific time_out or use default
+                $pc = self::cv($s['pc']);
+                if ($pc !== '' && isset($employeeSchedules[$pc])) {
+                    $empTimeOut = $employeeSchedules[$pc]['time_out'];
+                } else {
+                    $empTimeOut = $defaultTimeOut;
+                }
+                
+                $tOut = $s['last']->format('H:i:s');
+                if ($tOut < $empTimeOut) {
+                    $earlyLeave++;
+                }
             }
         }
 

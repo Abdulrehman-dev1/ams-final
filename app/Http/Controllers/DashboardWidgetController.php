@@ -48,7 +48,10 @@ class DashboardWidgetController extends Controller
         $tz = config('attendance.timezone', 'Asia/Karachi');
         // Use latest available date if not specified
         $focus = $request->input('date') ?: (AcsEvent::max('occur_date_pk') ?: Carbon::now($tz)->toDateString());
-        $cutOffOnTime = config('attendance.on_time_cutoff', '09:30:00');
+        $defaultTimeIn = '09:00:00';
+        
+        // Build employee schedule map (same logic as AdminController)
+        $employeeSchedules = $this->buildEmployeeSchedules($defaultTimeIn);
 
         $start = Carbon::parse($focus, $tz)->startOfDay();
         $end = Carbon::parse($focus, $tz)->endOfDay();
@@ -63,13 +66,25 @@ class DashboardWidgetController extends Controller
         $onTimeList = [];
         foreach ($summaries as $s) {
             if ($s['first']) {
+                // Get employee-specific late cutoff or use default
+                $pc = $s['pc'] ?? '';
+                if ($pc !== '' && isset($employeeSchedules[$pc])) {
+                    $lateCutoff = $employeeSchedules[$pc]['late_cutoff'];
+                } else {
+                    $defaultTimeInCarbon = Carbon::createFromFormat('H:i:s', $defaultTimeIn);
+                    $lateCutoff = $defaultTimeInCarbon->copy()->addMinutes(15)->format('H:i:s');
+                }
+                
                 $t = $s['first']->format('H:i:s');
-                if ($t <= $cutOffOnTime) {
+                if ($t <= $lateCutoff) {
                     $onTimeList[] = [
                         'person_code' => $s['pc'] ?: 'N/A',
                         'name' => $this->resolveEmployeeName($s['pc'], $s['full_name']),
                         'check_in_time' => $s['first']->format('h:i A'),
                         'source' => $s['in_source'],
+                        'expected_time' => $pc !== '' && isset($employeeSchedules[$pc]) 
+                            ? Carbon::createFromFormat('H:i:s', $employeeSchedules[$pc]['time_in'])->format('h:i A')
+                            : Carbon::createFromFormat('H:i:s', $defaultTimeIn)->format('h:i A'),
                     ];
                 }
             }
@@ -77,7 +92,7 @@ class DashboardWidgetController extends Controller
 
         return response()->json([
             'ok' => true,
-            'cutoff_time' => $cutOffOnTime,
+            'cutoff_time' => 'Employee-specific (time_in + 15 min)',
             'date' => $focus,
             'count' => count($onTimeList),
             'employees' => $onTimeList,
@@ -92,7 +107,10 @@ class DashboardWidgetController extends Controller
         $tz = config('attendance.timezone', 'Asia/Karachi');
         // Use latest available date if not specified
         $focus = $request->input('date') ?: (AcsEvent::max('occur_date_pk') ?: Carbon::now($tz)->toDateString());
-        $cutOffOnTime = config('attendance.on_time_cutoff', '09:30:00');
+        $defaultTimeIn = '09:00:00';
+        
+        // Build employee schedule map (same logic as AdminController)
+        $employeeSchedules = $this->buildEmployeeSchedules($defaultTimeIn);
 
         $start = Carbon::parse($focus, $tz)->startOfDay();
         $end = Carbon::parse($focus, $tz)->endOfDay();
@@ -107,15 +125,27 @@ class DashboardWidgetController extends Controller
         $lateList = [];
         foreach ($summaries as $s) {
             if ($s['first']) {
+                // Get employee-specific late cutoff or use default
+                $pc = $s['pc'] ?? '';
+                if ($pc !== '' && isset($employeeSchedules[$pc])) {
+                    $lateCutoff = $employeeSchedules[$pc]['late_cutoff'];
+                    $expectedTime = $employeeSchedules[$pc]['time_in'];
+                } else {
+                    $defaultTimeInCarbon = Carbon::createFromFormat('H:i:s', $defaultTimeIn);
+                    $lateCutoff = $defaultTimeInCarbon->copy()->addMinutes(15)->format('H:i:s');
+                    $expectedTime = $defaultTimeIn;
+                }
+                
                 $t = $s['first']->format('H:i:s');
-                if ($t > $cutOffOnTime) {
-                    $cutoff = Carbon::parse($focus . ' ' . $cutOffOnTime, $tz);
+                if ($t > $lateCutoff) {
+                    $cutoff = Carbon::parse($focus . ' ' . $lateCutoff, $tz);
                     $lateMinutes = $cutoff->diffInMinutes($s['first']);
 
                     $lateList[] = [
                         'person_code' => $s['pc'] ?: 'N/A',
                         'name' => $this->resolveEmployeeName($s['pc'], $s['full_name']),
                         'check_in_time' => $s['first']->format('h:i A'),
+                        'expected_time' => Carbon::createFromFormat('H:i:s', $expectedTime)->format('h:i A'),
                         'late_by' => $lateMinutes . ' min',
                         'source' => $s['in_source'],
                     ];
@@ -125,7 +155,7 @@ class DashboardWidgetController extends Controller
 
         return response()->json([
             'ok' => true,
-            'cutoff_time' => $cutOffOnTime,
+            'cutoff_time' => 'Employee-specific (time_in + 15 min)',
             'date' => $focus,
             'count' => count($lateList),
             'employees' => $lateList,
@@ -594,6 +624,50 @@ class DashboardWidgetController extends Controller
         if ($looksMobile) return 'Mobile';
         if ($dn !== '' || $cr !== '' || $di !== '') return 'Device';
         return 'Mobile';
+    }
+
+    /**
+     * Build employee schedules map for late time calculation
+     */
+    protected function buildEmployeeSchedules($defaultTimeIn = '09:00:00')
+    {
+        $employeeSchedules = [];
+        $employees = DailyEmployee::where('is_enabled', true)
+            ->whereNotNull('person_code')
+            ->where('person_code', '!=', '')
+            ->select('person_code', 'time_in', 'time_out')
+            ->get();
+        
+        foreach ($employees as $emp) {
+            $timeIn = $emp->time_in; // Accessor provides default if null
+            $timeOut = $emp->time_out;
+            
+            // Ensure time_in is in H:i:s format
+            if (strlen($timeIn) === 5) {
+                $timeIn .= ':00';
+            }
+            if (strlen($timeOut) === 5) {
+                $timeOut .= ':00';
+            }
+            
+            // Late cutoff = time_in + 15 minutes
+            try {
+                $timeInCarbon = Carbon::createFromFormat('H:i:s', $timeIn);
+                $lateCutoff = $timeInCarbon->copy()->addMinutes(15)->format('H:i:s');
+            } catch (\Exception $e) {
+                $timeInCarbon = Carbon::createFromFormat('H:i:s', $defaultTimeIn);
+                $lateCutoff = $timeInCarbon->copy()->addMinutes(15)->format('H:i:s');
+                $timeIn = $defaultTimeIn;
+            }
+            
+            $employeeSchedules[$emp->person_code] = [
+                'time_in' => $timeIn,
+                'time_out' => $timeOut,
+                'late_cutoff' => $lateCutoff,
+            ];
+        }
+        
+        return $employeeSchedules;
     }
 }
 

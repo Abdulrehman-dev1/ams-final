@@ -140,3 +140,4 @@ class HccScrapeVueData extends Command
 
 
 
+

@@ -38,25 +38,18 @@ class Kernel extends ConsoleKernel
             ->runInBackground()
             ->appendOutputTo(storage_path('logs/hik-employees-sync.log'));
 
-        // HCC Attendance Scraping - Every 5 minutes (using table scraper)
-        $schedule->command('hcc:scrape-table --from=' . now()->subDays(1)->format('Y-m-d') . ' --to=' . now()->format('Y-m-d'))
+        // HCC Attendance Sync - Every 5 minutes (Python Playwright)
+        $schedule->command('hcc:sync')
             ->everyFiveMinutes()
             ->withoutOverlapping()
             ->runInBackground()
-            ->appendOutputTo(storage_path('logs/hcc-scraper.log'));
+            ->appendOutputTo(storage_path('logs/hcc-sync.log'));
 
-        // HikCentral Connect: Scrape devices daily at 3:05 AM (using Dusk)
-        $schedule->command('hcc:scrape:devices')
+        // HikCentral Connect: Sync devices daily at 3:05 AM (API-based)
+        $schedule->command('hcc:sync:devices')
             ->dailyAt('03:05')
             ->runInBackground()
-            ->appendOutputTo(storage_path('logs/hcc-scraper.log'));
-
-        // Fallback: API-based ingestion (if Dusk is not available)
-        // $schedule->command('hcc:ingest:recent')
-        //     ->everyFiveMinutes()
-        //     ->withoutOverlapping()
-        //     ->runInBackground()
-        //     ->appendOutputTo(storage_path('logs/hcc-ingest.log'));
+            ->appendOutputTo(storage_path('logs/hcc-devices.log'));
     }
 
     /**

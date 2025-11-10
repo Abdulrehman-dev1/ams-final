@@ -2,12 +2,26 @@
 <link rel="shortcut icon" href="{{ URL::asset('assets/images/') }}">
 <meta name="viewport" content="width=device-width, initial-scale=1">      
 @yield('css')
+
+<!-- Google Fonts - Inter -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- Bootstrap Icons -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
- <!-- App css -->
+
+<!-- Font Awesome 6 -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<!-- App css -->
 <link href="{{ URL::asset('assets/css/bootstrap.min.css') }}" rel="stylesheet" type="text/css" />
 <link href="{{ URL::asset('assets/css/metismenu.min.css') }}" rel="stylesheet" type="text/css">
 <link href="{{ URL::asset('assets/css/icons.css') }}" rel="stylesheet" type="text/css" />
 <link href="{{ URL::asset('assets/css/style.css') }}" rel="stylesheet" type="text/css" />
+
+<!-- Modern Theme CSS -->
+<link href="{{ URL::asset('assets/css/modern-theme.css') }}" rel="stylesheet" type="text/css" />
 
 {{-- <link href="{{ URL::asset('plugins/sweet-alert2/sweetalert2.min.css') }}" rel="stylesheet" type="text/css"> --}}
 <link href="{{ asset('plugins/sweetalert.min.css') }}" rel="stylesheet">

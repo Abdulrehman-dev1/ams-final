@@ -11,6 +11,7 @@ use App\Http\Controllers\AttendanceController;
 use Illuminate\Http\Request;
 use App\Models\AcsEvent;
 use Illuminate\Support\Carbon;
+use App\Http\Controllers\ReportController;
 
 
 // ✅ keep these for DAILY PEOPLE (AttendanceController)
@@ -26,12 +27,22 @@ Route::post('/admin/daily-people/filter', [AttendanceController::class, 'dailyPe
 Route::post('/admin/daily-people/filter/reset', [AttendanceController::class, 'dailyPeopleResetFilters'])
     ->name('acs.people.filterReset');
 
+Route::get('/admin/daily-people/{id}/edit', [AttendanceController::class, 'dailyPeopleEdit'])
+    ->name('acs.people.edit');
+Route::get('/admin/daily-people/{id}/profile', [AttendanceController::class, 'dailyPeopleProfile'])
+    ->name('acs.people.profile');
+Route::put('/admin/daily-people/{id}', [AttendanceController::class, 'dailyPeopleUpdate'])
+    ->name('acs.people.update');
+Route::post('/admin/daily-people/{id}/toggle-status', [AttendanceController::class, 'dailyPeopleToggleStatus'])
+    ->name('acs.people.toggleStatus');
+
 
 
 Route::get('/admin/acs/daily', [AdminAcsDailyController::class, 'index'])->name('acs.daily.index');
 Route::get('/admin/acs/daily/timeline', [AdminAcsDailyController::class, 'timeline'])->name('acs.daily.timeline');
 // Optional sync button:
 Route::post('/admin/acs/daily/sync-now', [AdminAcsDailyController::class, 'syncNow'])->name('acs.daily.syncNow');
+Route::post('/admin/acs/daily/sync-scraper', [AdminAcsDailyController::class, 'syncScraper'])->name('acs.daily.syncScraper');
 
 Route::get('/admin/attendance/rollup', [AdminRollupWebController::class, 'index'])->name('rollup.index');
 Route::post('/admin/attendance/rollup/sync-all', [AdminRollupWebController::class, 'syncAll'])->name('rollup.syncAll');
@@ -43,6 +54,9 @@ Route::middleware(['web','auth']) // yahan apna admin middleware add kar saktay 
     ->group(function () {
         Route::get('/attendances', [AttendanceAdminController::class, 'index'])
             ->name('attendances.index');
+
+        Route::get('/reports', [ReportController::class, 'index'])
+            ->name('reports.index');
 
         // HikCentral Connect Routes
         Route::get('/hcc/attendance', [\App\Http\Controllers\HccAttendanceController::class, 'index'])
@@ -84,7 +98,6 @@ Route::get('attended-before/{user_id}', '\App\Http\Controllers\AttendanceControl
 Auth::routes(['register' => false, 'reset' => false]);
 
 Route::group(['middleware' => ['auth', 'Role'], 'roles' => ['admin']], function () {
-    Route::resource('/employees', '\App\Http\Controllers\EmployeeController');
     Route::resource('/employees', '\App\Http\Controllers\EmployeeController');
     Route::get('/attendance', '\App\Http\Controllers\AttendanceController@index')->name('attendance');
 

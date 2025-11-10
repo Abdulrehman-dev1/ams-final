@@ -12,10 +12,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http; 
 use Illuminate\Support\Facades\Schema;
 use App\Models\DailyEmployee;
+use App\Models\AcsEvent;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Arr;
-
+use Carbon\Carbon;
+use Carbon\CarbonPeriod;
+use Illuminate\Support\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 class AttendanceController extends Controller
 {   
@@ -627,11 +630,13 @@ protected function findGroupNameInArray(array $arr, string $groupId): ?string
   public function dailyPeopleIndex(Request $req)
 {
     $tz = config('app.timezone', 'Asia/Karachi');
+    $viewMode = $req->query('view', 'list');
 
     // 1) Read filters from session (not from query)
     $filters = Session::get('acs.daily.people.filters', [
         'name'        => '',
         'person_code' => '',
+        'status'      => '',
         'perPage'     => 25,
     ]);
 
@@ -642,7 +647,8 @@ protected function findGroupNameInArray(array $arr, string $groupId): ?string
     // 2) Build query
     $q = DailyEmployee::query()
         ->select(['id','head_pic_url','full_name','first_name','last_name',
-                  'phone','person_code','start_date','end_date','group_name']);
+                  'phone','person_code','start_date','end_date','group_name','is_enabled',
+                  'latitude','longitude','time_in','time_out']);
 
     if (!empty($filters['person_code'])) {
         $pc = trim((string)$filters['person_code']);
@@ -656,13 +662,22 @@ protected function findGroupNameInArray(array $arr, string $groupId): ?string
               ->orWhere('last_name','like',"%{$name}%");
         });
     }
+    
+    // Filter by status
+    if (!empty($filters['status'])) {
+        if ($filters['status'] === 'enabled') {
+            $q->where('is_enabled', true);
+        } elseif ($filters['status'] === 'disabled') {
+            $q->where('is_enabled', false);
+        }
+    }
 
+    // Order by name (full_name first, then first_name + last_name)
     $q->orderByRaw("COALESCE(NULLIF(full_name,''), CONCAT(COALESCE(first_name,''),' ',COALESCE(last_name,''))) ASC");
 
-    // 3) Manual pagination (no query string)
-    $all    = $q->get();
+    $employees = $q->get();
     $rows   = [];
-    foreach ($all as $r) {
+    foreach ($employees as $r) {
         $full = $r->full_name ?: trim(($r->first_name ?? '').' '.($r->last_name ?? ''));
         $rows[] = [
             'id'          => $r->id,
@@ -675,6 +690,11 @@ protected function findGroupNameInArray(array $arr, string $groupId): ?string
             'group_name'  => $r->group_name,
             'start_date'  => $r->start_date ? $r->start_date->timezone($tz)->toDateString() : null,
             'end_date'    => $r->end_date   ? $r->end_date->timezone($tz)->toDateString()   : null,
+            'is_enabled'  => $r->is_enabled ?? true,
+            'latitude'    => $r->latitude,
+            'longitude'   => $r->longitude,
+            'time_in'     => $r->time_in ?: '09:00:00',
+            'time_out'    => $r->time_out ?: '19:00:00',
         ];
     }
 
@@ -691,11 +711,131 @@ protected function findGroupNameInArray(array $arr, string $groupId): ?string
         ['path' => $req->url()] // no query string preserved
     );
 
+    // Employee reports view
+    $reportRangeDays = (int) $req->query('report_range', 30);
+    if ($reportRangeDays < 1) {
+        $reportRangeDays = 30;
+    }
+
+    $reportRangeLabel = $this->describeRangeLabel($reportRangeDays);
+    $reportRows = [];
+    $reportTotals = [
+        'employees' => 0,
+        'days_present' => 0,
+        'working_days' => 0,
+        'on_time_days' => 0,
+        'late_days' => 0,
+        'late_minutes' => 0,
+        'absent_days' => 0,
+        'overtime_minutes' => 0,
+        'early_leave_minutes' => 0,
+        'work_minutes' => 0,
+        'total_punches' => 0,
+        'mobile_punches' => 0,
+        'device_punches' => 0,
+        'avg_work_minutes' => 0,
+        'avg_work_formatted' => '00:00',
+        'on_time_rate' => null,
+    ];
+    $reportStart = null;
+    $reportEnd = null;
+
+    if ($viewMode === 'reports') {
+        $now = Carbon::now($tz);
+        $reportStart = $now->copy()->subDays($reportRangeDays - 1)->startOfDay();
+        $reportEnd = $now->copy()->endOfDay();
+
+        $personCodes = $employees->pluck('person_code')->filter()->unique()->values();
+        $events = collect();
+        if ($personCodes->isNotEmpty()) {
+            $events = AcsEvent::select([
+                    'person_code',
+                    'occur_time_pk',
+                    'device_name',
+                    'card_reader_name',
+                ])
+                ->whereIn('person_code', $personCodes)
+                ->whereBetween('occur_time_pk', [$reportStart, $reportEnd])
+                ->orderBy('occur_time_pk')
+                ->get();
+        }
+
+        $eventsByCode = $events->groupBy('person_code');
+
+        foreach ($employees as $employee) {
+            $personCode = $employee->person_code;
+            $eventSet = ($personCode && $eventsByCode->has($personCode))
+                ? $eventsByCode->get($personCode)
+                : collect();
+
+            $summary = $this->summarizeEmployeeAttendance($employee, $eventSet, $reportStart, $reportEnd, $tz, false);
+
+            $reportRows[] = [
+                'id' => $summary['id'],
+                'name' => $summary['name'],
+                'person_code' => $summary['person_code'],
+                'group' => $summary['group'],
+                'days_present' => $summary['days_present'],
+                'working_days' => $summary['working_days'],
+                'absent_days' => $summary['absent_days'],
+                'late_days' => $summary['late_days'],
+                'late_minutes' => $summary['late_minutes'],
+                'on_time_days' => $summary['on_time_days'],
+                'on_time_rate' => $summary['on_time_rate'],
+                'avg_check_in' => $summary['avg_check_in'],
+                'avg_check_out' => $summary['avg_check_out'],
+                'avg_work_formatted' => $summary['avg_work_formatted'],
+                'overtime_minutes' => $summary['overtime_minutes'],
+                'early_leave_minutes' => $summary['early_leave_minutes'],
+                'total_punches' => $summary['total_punches'],
+                'mobile_punches' => $summary['mobile_punches'],
+                'device_punches' => $summary['device_punches'],
+                'profile_url' => route('acs.people.profile', $summary['id']),
+            ];
+
+            $reportTotals['employees']++;
+            $reportTotals['days_present'] += $summary['days_present'];
+            $reportTotals['working_days'] += $summary['working_days'];
+            $reportTotals['on_time_days'] += $summary['on_time_days'];
+            $reportTotals['late_days'] += $summary['late_days'];
+            $reportTotals['late_minutes'] += $summary['late_minutes'];
+            $reportTotals['absent_days'] += $summary['absent_days'];
+            $reportTotals['overtime_minutes'] += $summary['overtime_minutes'];
+            $reportTotals['early_leave_minutes'] += $summary['early_leave_minutes'];
+            $reportTotals['work_minutes'] += $summary['total_work_minutes'];
+            $reportTotals['total_punches'] += $summary['total_punches'];
+            $reportTotals['mobile_punches'] += $summary['mobile_punches'];
+            $reportTotals['device_punches'] += $summary['device_punches'];
+        }
+
+        if ($reportTotals['days_present'] > 0) {
+            $reportTotals['avg_work_minutes'] = round($reportTotals['work_minutes'] / $reportTotals['days_present']);
+            $reportTotals['on_time_rate'] = round(($reportTotals['on_time_days'] / $reportTotals['days_present']) * 100, 1);
+        } else {
+            $reportTotals['avg_work_minutes'] = 0;
+            $reportTotals['on_time_rate'] = null;
+        }
+
+        $reportTotals['avg_work_formatted'] = $this->formatMinutes($reportTotals['avg_work_minutes']);
+        $reportTotals['overtime_formatted'] = $this->formatMinutes($reportTotals['overtime_minutes']);
+        $reportTotals['early_leave_formatted'] = $this->formatMinutes($reportTotals['early_leave_minutes']);
+        $reportTotals['late_minutes_formatted'] = $this->formatMinutes($reportTotals['late_minutes']);
+    }
+
+    unset($reportTotals['work_minutes']);
+
     return view('admin.acs_daily_people', [
         'page'    => $paginator,
         'filters' => $filters,
         'tz'      => $tz,
         'flash'   => session('flash'),
+        'viewMode' => $viewMode,
+        'reportRows' => $reportRows,
+        'reportTotals' => $reportTotals,
+        'reportRangeDays' => $reportRangeDays,
+        'reportRangeLabel' => $reportRangeLabel,
+        'reportStart' => $reportStart,
+        'reportEnd' => $reportEnd,
     ]);
 }
 
@@ -705,6 +845,7 @@ public function dailyPeopleSetFilters(Request $req)
     $filters = [
         'name'        => trim((string)$req->input('name','')),
         'person_code' => trim((string)$req->input('person_code','')),
+        'status'      => trim((string)$req->input('status','')),
         'perPage'     => (int)$req->input('perPage', 25),
     ];
     if ($filters['perPage'] < 10)  $filters['perPage'] = 10;
@@ -727,28 +868,529 @@ public function dailyPeopleResetFilters(Request $req)
 // Sync wrapper stays same; redirect without query
 public function dailyPeopleSyncNow(Request $req)
 {
-    $resp = $this->syncPersonsFromHik($req);
-    $code = $resp->getStatusCode();
-    $data = $resp->getData(true);
-
-    if ($code >= 400 || empty($data['ok'])) {
+    // Check if token is configured
+    $token = config('services.hik.token');
+    if (empty($token)) {
         return redirect()->route('acs.people.index')->with([
             'alert_type' => 'error',
-            'alert_title' => 'Sync Failed',
-            'alert_message' => $data['msg'] ?? 'Failed to sync employees from Hikvision',
+            'alert_title' => 'Configuration Error',
+            'alert_message' => 'HIK_TOKEN is not configured in your .env file. Please set HIK_TOKEN=your_token_here',
         ]);
     }
 
-    $ins = $data['inserted'] ?? 0;
-    $upd = $data['updated']  ?? 0;
-    $total = $data['total_seen'] ?? ($ins + $upd);
+    try {
+        $resp = $this->syncPersonsFromHik($req);
+        $code = $resp->getStatusCode();
+        $data = $resp->getData(true);
 
+        if ($code >= 400 || empty($data['ok'])) {
+            $errorMsg = $data['msg'] ?? 'Failed to sync employees from Hikvision';
+            $errorDetails = '';
+            
+            if (isset($data['errorCode'])) {
+                $errorDetails = " Error Code: {$data['errorCode']}";
+            }
+            
+            if (isset($data['peek'])) {
+                $errorDetails .= " Response keys: " . implode(', ', $data['peek']['top_keys'] ?? []);
+            }
+
+            return redirect()->route('acs.people.index')->with([
+                'alert_type' => 'error',
+                'alert_title' => 'Sync Failed',
+                'alert_message' => $errorMsg . $errorDetails,
+            ]);
+        }
+
+        $ins = $data['inserted'] ?? 0;
+        $upd = $data['updated']  ?? 0;
+        $total = $data['total_seen'] ?? ($ins + $upd);
+
+        if ($total === 0) {
+            return redirect()->route('acs.people.index')->with([
+                'alert_type' => 'warning',
+                'alert_title' => 'No Employees Found',
+                'alert_message' => 'The sync completed but no employees were found. Check if the HikCentral Connect API has employee data.',
+                'alert_stats' => $data['note'] ?? 'No data returned from API',
+            ]);
+        }
+
+        return redirect()->route('acs.people.index')->with([
+            'alert_type' => 'success',
+            'alert_title' => 'Sync Successful!',
+            'alert_message' => "Successfully synced {$total} employees from Hikvision",
+            'alert_stats' => "Inserted: {$ins} | Updated: {$upd}",
+        ]);
+    } catch (\Exception $e) {
+        \Log::error('Employee sync error: ' . $e->getMessage(), [
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return redirect()->route('acs.people.index')->with([
+            'alert_type' => 'error',
+            'alert_title' => 'Sync Error',
+            'alert_message' => 'An error occurred while syncing: ' . $e->getMessage(),
+        ]);
+    }
+}
+
+// Edit employee
+public function dailyPeopleEdit(Request $req, $id)
+{
+    $employee = DailyEmployee::findOrFail($id);
+    
+    return view('admin.acs_daily_people_edit', [
+        'employee' => $employee,
+        'tz' => config('app.timezone', 'Asia/Karachi'),
+    ]);
+}
+
+// Update employee
+public function dailyPeopleUpdate(Request $req, $id)
+{
+    $employee = DailyEmployee::findOrFail($id);
+    
+    $validated = $req->validate([
+        'first_name' => 'nullable|string|max:255',
+        'last_name' => 'nullable|string|max:255',
+        'full_name' => 'nullable|string|max:255',
+        'phone' => 'nullable|string|max:50',
+        'email' => 'nullable|email|max:255',
+        'person_code' => 'nullable|string|max:100',
+        'group_name' => 'nullable|string|max:255',
+        'start_date' => 'nullable|date',
+        'end_date' => 'nullable|date',
+        'description' => 'nullable|string',
+        'is_enabled' => 'nullable|boolean',
+        'latitude' => 'nullable|numeric|between:-90,90',
+        'longitude' => 'nullable|numeric|between:-180,180',
+        'time_in' => 'nullable|date_format:H:i',
+        'time_out' => 'nullable|date_format:H:i',
+        'base_salary' => 'nullable|numeric|min:0|max:9999999999.99',
+    ]);
+    
+    // Handle is_enabled - checkbox sends '1' when checked, '0' when unchecked (via hidden input)
+    // If checkbox is checked, it sends '1', if unchecked, hidden input sends '0'
+    $validated['is_enabled'] = (bool)($req->input('is_enabled', '0'));
+    
+    // Handle dates
+    if (isset($validated['start_date']) && !empty($validated['start_date'])) {
+        $validated['start_date'] = \Carbon\Carbon::parse($validated['start_date'])->startOfDay();
+    } else {
+        $validated['start_date'] = null;
+    }
+    
+    if (isset($validated['end_date']) && !empty($validated['end_date'])) {
+        $validated['end_date'] = \Carbon\Carbon::parse($validated['end_date'])->endOfDay();
+        
+        // Validate end_date is after start_date if both are set
+        if ($validated['start_date'] && $validated['end_date']->lt($validated['start_date'])) {
+            return redirect()->back()->withErrors(['end_date' => 'End date must be after start date'])->withInput();
+        }
+    } else {
+        $validated['end_date'] = null;
+    }
+    
+    // Handle time_in and time_out - ensure they're in H:i:s format
+    if (isset($validated['time_in']) && !empty($validated['time_in'])) {
+        $validated['time_in'] = \Carbon\Carbon::parse($validated['time_in'])->format('H:i:s');
+    } else {
+        $validated['time_in'] = '09:00:00'; // default
+    }
+    
+    if (isset($validated['time_out']) && !empty($validated['time_out'])) {
+        $validated['time_out'] = \Carbon\Carbon::parse($validated['time_out'])->format('H:i:s');
+    } else {
+        $validated['time_out'] = '19:00:00'; // default
+    }
+    
+    // Handle latitude and longitude
+    if (isset($validated['latitude']) && $validated['latitude'] === '') {
+        $validated['latitude'] = null;
+    }
+    if (isset($validated['longitude']) && $validated['longitude'] === '') {
+        $validated['longitude'] = null;
+    }
+    // Normalize base salary
+    if (array_key_exists('base_salary', $validated)) {
+        if ($validated['base_salary'] === '' || $validated['base_salary'] === null) {
+            $validated['base_salary'] = null;
+        } else {
+            $validated['base_salary'] = round((float) $validated['base_salary'], 2);
+        }
+    }
+    
+    $employee->update($validated);
+    
     return redirect()->route('acs.people.index')->with([
         'alert_type' => 'success',
-        'alert_title' => 'Sync Successful!',
-        'alert_message' => "Successfully synced {$total} employees from Hikvision",
-        'alert_stats' => "Inserted: {$ins} | Updated: {$upd}",
+        'alert_title' => 'Employee Updated',
+        'alert_message' => 'Employee information has been updated successfully.',
     ]);
+}
+
+// Toggle enabled/disabled status
+public function dailyPeopleToggleStatus(Request $req, $id)
+{
+    $employee = DailyEmployee::findOrFail($id);
+    $employee->is_enabled = !$employee->is_enabled;
+    $employee->save();
+    
+    $status = $employee->is_enabled ? 'enabled' : 'disabled';
+    
+    return redirect()->route('acs.people.index')->with([
+        'alert_type' => 'success',
+        'alert_title' => 'Status Updated',
+        'alert_message' => "Employee has been {$status} successfully.",
+    ]);
+}
+
+
+public function dailyPeopleProfile(Request $req, $id)
+{
+    $tz = config('app.timezone', 'Asia/Karachi');
+    $employee = DailyEmployee::findOrFail($id);
+
+    $rangeDays = max((int) $req->query('range', 30), 1);
+    $rangeLabel = $this->describeRangeLabel($rangeDays);
+
+    $now = Carbon::now($tz);
+    $start = $now->copy()->subDays($rangeDays - 1)->startOfDay();
+    $end = $now->copy()->endOfDay();
+
+    $events = collect();
+    if (!empty($employee->person_code)) {
+        $events = AcsEvent::select(['person_code','occur_time_pk','device_name','card_reader_name'])
+            ->where('person_code', $employee->person_code)
+            ->whereBetween('occur_time_pk', [$start, $end])
+            ->orderBy('occur_time_pk')
+            ->get();
+    }
+
+    $summary = $this->summarizeEmployeeAttendance($employee, $events, $start, $end, $tz, true);
+    $suggestions = $this->buildEmployeeSuggestions($summary);
+
+    $recentEvents = collect();
+    if (!empty($employee->person_code)) {
+        $recentEvents = AcsEvent::select(['occur_time_pk','device_name','card_reader_name'])
+            ->where('person_code', $employee->person_code)
+            ->orderBy('occur_time_pk', 'desc')
+            ->limit(25)
+            ->get()
+            ->map(function ($event) use ($tz) {
+                $dt = Carbon::parse($event->occur_time_pk, $tz)->timezone($tz);
+                return [
+                    'timestamp' => $dt,
+                    'device_name' => $event->device_name,
+                    'card_reader_name' => $event->card_reader_name,
+                    'source' => $this->isMobileEvent($event) ? 'Mobile' : 'Device',
+                ];
+            });
+    }
+
+    return view('admin.acs_daily_people_profile', [
+        'employee' => $employee,
+        'summary' => $summary,
+        'suggestions' => $suggestions,
+        'recentEvents' => $recentEvents,
+        'salarySheet' => $this->buildSalarySheet($req, $employee, $summary),
+        'rangeDays' => $rangeDays,
+        'rangeLabel' => $rangeLabel,
+        'tz' => $tz,
+    ]);
+}
+
+
+protected function summarizeEmployeeAttendance(DailyEmployee $employee, Collection $events, Carbon $start, Carbon $end, string $tz, bool $includeDaily = false): array
+{
+    $timeIn = $employee->time_in ?: '09:00:00';
+    $timeOut = $employee->time_out ?: '19:00:00';
+    if (strlen($timeIn) === 5) {
+        $timeIn .= ':00';
+    }
+    if (strlen($timeOut) === 5) {
+        $timeOut .= ':00';
+    }
+
+    $eventsByDate = $events->groupBy(function ($event) use ($tz) {
+        return Carbon::parse($event->occur_time_pk, $tz)->toDateString();
+    })->sortKeys();
+
+    $daysPresent = $eventsByDate->count();
+    $lateDays = 0;
+    $lateMinutesTotal = 0;
+    $overtimeMinutes = 0;
+    $earlyLeaveMinutes = 0;
+    $workMinutesTotal = 0;
+    $checkInTotalMinutes = 0;
+    $checkOutTotalMinutes = 0;
+    $mobilePunches = 0;
+    $devicePunches = 0;
+    $totalPunches = $events->count();
+    $dailyDetails = [];
+
+    foreach ($eventsByDate as $date => $dayEvents) {
+        $dayEvents = $dayEvents->sortBy('occur_time_pk')->values();
+        $firstEvent = $dayEvents->first();
+        $lastEvent = $dayEvents->last();
+
+        $first = Carbon::parse($firstEvent->occur_time_pk, $tz)->timezone($tz);
+        $last = Carbon::parse($lastEvent->occur_time_pk, $tz)->timezone($tz);
+        $expectedIn = Carbon::parse("{$date} {$timeIn}", $tz);
+        $expectedOut = Carbon::parse("{$date} {$timeOut}", $tz);
+        $lateCutoff = $expectedIn->copy()->addMinutes(15);
+
+        $lateMinutesDay = 0;
+        if ($first->greaterThan($lateCutoff)) {
+            $lateDays++;
+            $lateMinutesDay = $lateCutoff->diffInMinutes($first);
+            $lateMinutesTotal += $lateMinutesDay;
+        }
+
+        $workMinutes = max($first->diffInMinutes($last), 0);
+        $workMinutesTotal += $workMinutes;
+
+        $checkInTotalMinutes += $first->hour * 60 + $first->minute;
+        $checkOutTotalMinutes += $last->hour * 60 + $last->minute;
+
+        $mobilePunchesDay = $dayEvents->filter(function ($event) {
+            return $this->isMobileEvent($event);
+        })->count();
+        $mobilePunches += $mobilePunchesDay;
+        $devicePunches += $dayEvents->count() - $mobilePunchesDay;
+
+        $overtimeMinutesDay = 0;
+        $earlyLeaveMinutesDay = 0;
+        if ($last->greaterThan($expectedOut)) {
+            $overtimeMinutesDay = $expectedOut->diffInMinutes($last);
+            $overtimeMinutes += $overtimeMinutesDay;
+        } elseif ($last->lessThan($expectedOut)) {
+            $earlyLeaveMinutesDay = $expectedOut->diffInMinutes($last);
+            $earlyLeaveMinutes += $earlyLeaveMinutesDay;
+        }
+
+        if ($includeDaily) {
+            $dailyDetails[] = [
+                'date' => Carbon::parse($date, $tz),
+                'first_in' => $first,
+                'expected_in' => $expectedIn,
+                'late_minutes' => $lateMinutesDay,
+                'last_out' => $last,
+                'expected_out' => $expectedOut,
+                'overtime_minutes' => $overtimeMinutesDay,
+                'early_leave_minutes' => $earlyLeaveMinutesDay,
+                'work_minutes' => $workMinutes,
+                'mobile_punches' => $mobilePunchesDay,
+                'device_punches' => $dayEvents->count() - $mobilePunchesDay,
+            ];
+        }
+    }
+
+    if ($includeDaily && count($dailyDetails) > 0) {
+        usort($dailyDetails, function ($a, $b) {
+            return $b['date']->timestamp <=> $a['date']->timestamp;
+        });
+    }
+
+    $workingDays = $this->countWorkingDays($start, $end);
+    $absentDays = max($workingDays - $daysPresent, 0);
+    $onTimeDays = max($daysPresent - $lateDays, 0);
+    $onTimeRate = $daysPresent > 0 ? round(($onTimeDays / $daysPresent) * 100, 1) : null;
+
+    $avgCheckIn = $daysPresent > 0 && $checkInTotalMinutes > 0
+        ? Carbon::createFromTime(0, 0, 0, $tz)->addMinutes(round($checkInTotalMinutes / $daysPresent))->format('h:i A')
+        : '—';
+    $avgCheckOut = $daysPresent > 0 && $checkOutTotalMinutes > 0
+        ? Carbon::createFromTime(0, 0, 0, $tz)->addMinutes(round($checkOutTotalMinutes / $daysPresent))->format('h:i A')
+        : '—';
+
+    $avgWorkMinutes = $daysPresent > 0 ? round($workMinutesTotal / $daysPresent) : 0;
+    $avgWorkFormatted = $this->formatMinutes($avgWorkMinutes);
+
+    $name = $employee->full_name ?: trim(($employee->first_name ?? '') . ' ' . ($employee->last_name ?? ''));
+    if ($name === '') {
+        $name = '—';
+    }
+
+    return [
+        'id' => $employee->id,
+        'person_code' => $employee->person_code ?: '—',
+        'name' => $name,
+        'group' => $employee->group_name ?: '—',
+        'time_in' => $timeIn,
+        'time_out' => $timeOut,
+        'latitude' => $employee->latitude,
+        'longitude' => $employee->longitude,
+        'photo_url' => $employee->head_pic_url,
+        'days_present' => $daysPresent,
+        'working_days' => $workingDays,
+        'absent_days' => $absentDays,
+        'late_days' => $lateDays,
+        'late_minutes' => $lateMinutesTotal,
+        'on_time_days' => $onTimeDays,
+        'on_time_rate' => $onTimeRate,
+        'avg_check_in' => $avgCheckIn,
+        'avg_check_out' => $avgCheckOut,
+        'avg_work_minutes' => $avgWorkMinutes,
+        'avg_work_formatted' => $avgWorkFormatted,
+        'total_work_minutes' => $workMinutesTotal,
+        'overtime_minutes' => $overtimeMinutes,
+        'early_leave_minutes' => $earlyLeaveMinutes,
+        'total_punches' => $totalPunches,
+        'mobile_punches' => $mobilePunches,
+        'device_punches' => $devicePunches,
+        'range_start' => $start,
+        'range_end' => $end,
+        'daily' => $includeDaily ? $dailyDetails : [],
+    ];
+}
+
+
+protected function countWorkingDays(Carbon $start, Carbon $end): int
+{
+    if ($end->lessThan($start)) {
+        return 0;
+    }
+
+    $period = CarbonPeriod::create($start->copy()->startOfDay(), '1 day', $end->copy()->startOfDay());
+    $count = 0;
+    foreach ($period as $day) {
+        if (!$day->isWeekend()) {
+            $count++;
+        }
+    }
+
+    return $count;
+}
+
+
+protected function isMobileEvent($event): bool
+{
+    $device = strtolower((string) ($event->device_name ?? ''));
+    $reader = strtolower((string) ($event->card_reader_name ?? ''));
+
+    return str_contains($device, 'mobile')
+        || str_contains($device, 'app')
+        || str_contains($reader, 'mobile')
+        || str_contains($reader, 'app');
+}
+
+
+protected function formatMinutes(int $minutes): string
+{
+    $minutes = max($minutes, 0);
+    $hours = intdiv($minutes, 60);
+    $mins = $minutes % 60;
+    return sprintf('%02d:%02d', $hours, $mins);
+}
+
+
+protected function describeRangeLabel(int $days): string
+{
+    return match ($days) {
+        7 => 'Last 7 Days',
+        14 => 'Last 14 Days',
+        30 => 'Last 30 Days',
+        60 => 'Last 60 Days',
+        90 => 'Last 90 Days',
+        default => 'Last ' . $days . ' Days',
+    };
+}
+
+
+protected function buildEmployeeSuggestions(array $summary): array
+{
+    $suggestions = [];
+
+    if ($summary['late_days'] > 0) {
+        $suggestions[] = "Late arrivals recorded on {$summary['late_days']} day(s). Consider reviewing reminders or shift start expectations.";
+    }
+
+    if ($summary['absent_days'] > 0) {
+        $suggestions[] = "Detected {$summary['absent_days']} working day(s) without punches. Verify schedules or leave requests.";
+    }
+
+    if ($summary['overtime_minutes'] >= 120) {
+        $suggestions[] = 'Overtime exceeds 2 hours in this period. Ensure the extra hours are planned and approved.';
+    }
+
+    if ($summary['early_leave_minutes'] >= 60) {
+        $suggestions[] = 'Early departures total more than 1 hour. Check if shift end expectations are clear.';
+    }
+
+    if ($summary['mobile_punches'] > $summary['device_punches']) {
+        $suggestions[] = 'Most punches are from mobile/app sources. Confirm that GPS/location policies are satisfied.';
+    }
+
+    if ($summary['avg_work_minutes'] > 9 * 60) {
+        $suggestions[] = 'Average workday exceeds 9 hours. Consider balancing workload or monitoring fatigue.';
+    }
+
+    if (empty($suggestions)) {
+        $suggestions[] = 'Attendance looks healthy for the selected range. Keep up the consistency!';
+    }
+
+    return $suggestions;
+}
+
+
+protected function buildSalarySheet(Request $req, DailyEmployee $employee, array $summary): array
+{
+    // Base salary priority: stored per-employee > query override > 0
+    $storedBase = (float) ($employee->base_salary ?? 0);
+    $queryBase  = $req->has('base') ? (float) $req->query('base') : null;
+    $baseSalary = $queryBase !== null ? $queryBase : $storedBase;
+    $currency   = (string) $req->query('cur', 'PKR');
+
+    // Configurable rates (fallback to 0 if not configured)
+    $latePenaltyPerMinute       = (float) (config('attendance.late_penalty_per_minute', 0));
+    $overtimeRatePerHour        = (float) (config('attendance.overtime_rate_per_hour', 0));
+    $earlyLeavePenaltyPerMinute = (float) (config('attendance.early_leave_penalty_per_minute', 0));
+
+    // Salary sheet uses a fixed 26 working days cycle
+    $workingDays   = 26;
+    $daysPresent   = max((int) $summary['days_present'], 0);
+    $absentDays    = max((int) $summary['absent_days'], 0);
+    $lateMinutes   = max((int) $summary['late_minutes'], 0);
+    $overtimeMins  = max((int) $summary['overtime_minutes'], 0);
+    $earlyLeaveMins= max((int) $summary['early_leave_minutes'], 0);
+
+    $dailyRate = $workingDays > 0 ? ($baseSalary / $workingDays) : 0.0;
+    $absentDeduction = $absentDays * $dailyRate;
+
+    $lateDeduction       = $lateMinutes * $latePenaltyPerMinute;
+    $earlyLeaveDeduction = $earlyLeaveMins * $earlyLeavePenaltyPerMinute;
+    $overtimePay         = ($overtimeMins / 60.0) * $overtimeRatePerHour;
+
+    $gross   = $baseSalary;
+    $totalDed = $absentDeduction + $lateDeduction + $earlyLeaveDeduction;
+    $net     = $gross - $totalDed + $overtimePay;
+
+    return [
+        'currency' => $currency,
+        'base_salary' => round($baseSalary, 2),
+        'daily_rate' => round($dailyRate, 2),
+        'working_days' => $workingDays,
+        'days_present' => $daysPresent,
+        'absent_days' => $absentDays,
+
+        'late_minutes' => $lateMinutes,
+        'late_penalty_per_minute' => $latePenaltyPerMinute,
+        'late_deduction' => round($lateDeduction, 2),
+
+        'early_leave_minutes' => $earlyLeaveMins,
+        'early_leave_penalty_per_minute' => $earlyLeavePenaltyPerMinute,
+        'early_leave_deduction' => round($earlyLeaveDeduction, 2),
+
+        'overtime_minutes' => $overtimeMins,
+        'overtime_rate_per_hour' => $overtimeRatePerHour,
+        'overtime_pay' => round($overtimePay, 2),
+
+        'absent_deduction' => round($absentDeduction, 2),
+        'gross' => round($gross, 2),
+        'total_deductions' => round($totalDed, 2),
+        'net_salary' => round($net, 2),
+    ];
 }
 
 }

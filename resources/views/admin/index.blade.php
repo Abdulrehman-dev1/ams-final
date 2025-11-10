@@ -35,21 +35,22 @@
 @endsection
 
 @section('breadcrumb')
-<div class="col-sm-6 text-left" >
-     <h4 class="page-title">Dashboard</h4>
-     <ol class="breadcrumb">
-         <li class="breadcrumb-item active">Welcome to Attendance Management System</li>
-     </ol>
-</div>
-<div class="col-sm-6">
-    <div class="float-right">
+<div class="d-flex align-items-center justify-content-between w-100">
+    <div>
+        <h2 class="mb-1" style="font-weight: 700; color: var(--gray-900);">
+            <i class="bi bi-speedometer2 me-2" style="color: var(--primary);"></i>
+            Dashboard
+        </h2>
+        <p class="text-muted mb-0" style="font-size: 0.875rem;">Welcome to Attendance Management System</p>
+    </div>
+    <div>
         @if($more['is_today'])
-            <span class="badge badge-success badge-pill focus-date-badge">
-                <i class="mdi mdi-calendar-today"></i> Today: {{ $more['focus_date'] }}
+            <span class="modern-badge modern-badge-success" style="font-size: 0.875rem; padding: 0.5rem 1rem;">
+                <i class="bi bi-calendar-today me-1"></i> Today: {{ $more['focus_date'] }}
             </span>
         @else
-            <span class="badge badge-warning badge-pill focus-date-badge">
-                <i class="mdi mdi-calendar"></i> Viewing: {{ $more['focus_date'] }}
+            <span class="modern-badge modern-badge-warning" style="font-size: 0.875rem; padding: 0.5rem 1rem;">
+                <i class="bi bi-calendar me-1"></i> Viewing: {{ $more['focus_date'] }}
             </span>
         @endif
     </div>
@@ -57,34 +58,40 @@
 @endsection
 
 @section('content')
-                   <!-- Sync Status Widget -->
-                   <div class="row mb-3">
+                   <!-- Modern Sync Status Widget -->
+                   <div class="row mb-4">
                        <div class="col-12">
-                           <div class="card sync-status-widget {{ $more['sync_healthy'] ? 'sync-healthy' : 'sync-warning' }}">
-                               <div class="card-body py-2">
+                           <div class="modern-card" style="border-left: 4px solid {{ $more['sync_healthy'] ? 'var(--success)' : 'var(--warning)' }};">
+                               <div class="modern-card-body">
                                    <div class="row align-items-center">
                                        <div class="col-md-4">
-                                           <i class="mdi mdi-sync {{ $more['sync_healthy'] ? 'text-success' : 'text-warning' }} mr-2"></i>
-                                           <strong>Last Sync:</strong> {{ $more['last_sync'] }}
-                                           @if(!$more['sync_healthy'])
-                                               <span class="badge badge-warning ml-2">Sync may be delayed</span>
-                                           @endif
+                                           <div class="d-flex align-items-center gap-2">
+                                               <i class="bi bi-arrow-repeat {{ $more['sync_healthy'] ? 'text-success' : 'text-warning' }}" style="font-size: 1.25rem;"></i>
+                                               <div>
+                                                   <div style="font-weight: 600; color: var(--gray-900);">Last Sync</div>
+                                                   <div style="font-size: 0.875rem; color: var(--gray-600);">{{ $more['last_sync'] }}</div>
+                                                   @if(!$more['sync_healthy'])
+                                                       <span class="modern-badge modern-badge-warning mt-1">Sync may be delayed</span>
+                                                   @endif
+                                               </div>
+                                           </div>
                                        </div>
                                        <div class="col-md-4 text-center">
-                                           <i class="mdi mdi-calendar-check mr-2"></i>
-                                           <strong>Showing Data For:</strong>
-                                           <span class="badge badge-{{ $more['is_today'] ? 'success' : 'info' }} badge-lg">
-                                               {{ $more['focus_date'] }}
-                                           </span>
-                                           <br>
-                                           <small class="text-muted" style="font-size: 10px;">Page loaded: {{ now()->format('H:i:s') }}</small>
+                                           <div class="d-flex flex-column align-items-center">
+                                               <div style="font-weight: 600; color: var(--gray-900); margin-bottom: 0.5rem;">Showing Data For</div>
+                                               <span class="modern-badge {{ $more['is_today'] ? 'modern-badge-success' : 'modern-badge-info' }}" style="font-size: 1rem; padding: 0.5rem 1rem;">
+                                                   <i class="bi bi-calendar3 me-1"></i>{{ $more['focus_date'] }}
+                                               </span>
+                                               <small class="text-muted mt-2" style="font-size: 0.75rem;">Page loaded: {{ now()->format('H:i:s') }}</small>
+                                           </div>
                                        </div>
-                                       <div class="col-md-4 text-right">
-                                           <small class="text-muted">
-                                               On-time: <strong>{{ $more['config']['on_time_cutoff'] }}</strong> |
-                                               Absent: <strong>{{ $more['config']['absent_cutoff'] }}</strong> |
-                                               End: <strong>{{ $more['config']['shift_end_time'] }}</strong>
-                                           </small>
+                                       <div class="col-md-4 text-end">
+                                           <div style="font-weight: 600; color: var(--gray-900); margin-bottom: 0.5rem;">Settings</div>
+                                           <div style="font-size: 0.875rem; color: var(--gray-600);">
+                                               <div>On-time: <strong>{{ $more['config']['on_time_cutoff'] }}</strong></div>
+                                               <div>Absent: <strong>{{ $more['config']['absent_cutoff'] }}</strong></div>
+                                               <div>End: <strong>{{ $more['config']['shift_end_time'] }}</strong></div>
+                                           </div>
                                        </div>
                                    </div>
                                </div>
@@ -92,181 +99,125 @@
                        </div>
                    </div>
 
-                   <!-- Row 1: Core Metrics -->
-                   <div class="row">
+                   <!-- Row 1: Core Metrics - Modern Widgets -->
+                   <div class="row g-4 mb-4">
                             <div class="col-xl-3 col-md-6">
-                                <div class="card mini-stat bg-primary text-white">
-                                    <div class="card-body">
-                                        <div class="mb-4">
-                                            <div class="float-left mini-stat-img mr-3">
-                                                <span class="ti-id-badge" style="font-size: 20px"></span>
-                                            </div>
-                                            <h5 class="font-16 text-uppercase mt-0 text-white-50">Total <br> Employees</h5>
-                                            <h4 class="font-500">{{$data[0]}} </h4>
-                                        </div>
-                                        <div class="pt-2">
-                                            <div class="float-right">
-                                                <a href="javascript:void(0);" class="text-white-50 widget-more-info" data-widget="total-employees">
-                                                    <i class="mdi mdi-arrow-right h5"></i>
-                                                </a>
-                                            </div>
-                                            <p class="text-white-50 mb-0 widget-more-info" data-widget="total-employees">More info</p>
-                                        </div>
+                                <div class="modern-widget slide-up">
+                                    <div class="modern-widget-icon modern-widget-icon-primary">
+                                        <i class="bi bi-people-fill"></i>
+                                    </div>
+                                    <div class="modern-widget-label">Total Employees</div>
+                                    <div class="modern-widget-value">{{$data[0]}}</div>
+                                    <div class="d-flex justify-content-between align-items-center mt-3">
+                                        <a href="javascript:void(0);" class="text-decoration-none widget-more-info" data-widget="total-employees" style="color: var(--primary); font-size: 0.875rem;">
+                                            More info <i class="bi bi-arrow-right ms-1"></i>
+                                        </a>
                                     </div>
                                 </div>
                             </div>
                             <div class="col-xl-3 col-md-6">
-                                <div class="card mini-stat bg-primary text-white">
-                                    <div class="card-body">
-                                        <div class="mb-4">
-                                            <div class="float-left mini-stat-img mr-3">
-                                                <i class="ti-alarm-clock" style="font-size: 20px"></i>
-                                            </div>
-                                            <h6  class="font-16 text-uppercase mt-0 text-white-50" >On Time <br> Percentage</h6>
-                                            <h4 class="font-500">{{$data[3]}} %<i class="text-danger ml-2"></i></h4>
-                                        </div>
-                                        <div class="pt-2">
-                                            <div class="float-right">
-                                                <a href="javascript:void(0);" class="text-white-50 widget-more-info" data-widget="on-time">
-                                                    <i class="mdi mdi-arrow-right h5"></i>
-                                                </a>
-                                            </div>
-                                            <p class="text-white-50 mb-0 widget-more-info" data-widget="on-time">More info</p>
-                                        </div>
+                                <div class="modern-widget slide-up" style="animation-delay: 0.1s;">
+                                    <div class="modern-widget-icon modern-widget-icon-success">
+                                        <i class="bi bi-clock-history"></i>
+                                    </div>
+                                    <div class="modern-widget-label">On Time Percentage</div>
+                                    <div class="modern-widget-value">{{$data[3]}}%</div>
+                                    <div class="d-flex justify-content-between align-items-center mt-3">
+                                        <a href="javascript:void(0);" class="text-decoration-none widget-more-info" data-widget="on-time" style="color: var(--success); font-size: 0.875rem;">
+                                            More info <i class="bi bi-arrow-right ms-1"></i>
+                                        </a>
                                     </div>
                                 </div>
                             </div>
                             <div class="col-xl-3 col-md-6">
-                                <div class="card mini-stat bg-primary text-white">
-                                    <div class="card-body">
-                                        <div class="mb-4">
-                                            <div class="float-left mini-stat-img mr-3">
-                                                <i class=" ti-check-box " style="font-size: 20px"></i>
-                                            </div>
-                                            <h5 class="font-16 text-uppercase mt-0 text-white-50">On Time <br> Today</h5>
-                                            <h4 class="font-500">{{$data[1]}} <i class=" text-success ml-2"></i></h4>
-                                        </div>
-                                        <div class="pt-2">
-                                            <div class="float-right">
-                                                <a href="javascript:void(0);" class="text-white-50 widget-more-info" data-widget="on-time">
-                                                    <i class="mdi mdi-arrow-right h5"></i>
-                                                </a>
-                                            </div>
-                                            <p class="text-white-50 mb-0 widget-more-info" data-widget="on-time">More info</p>
-                                        </div>
+                                <div class="modern-widget slide-up" style="animation-delay: 0.2s;">
+                                    <div class="modern-widget-icon modern-widget-icon-success">
+                                        <i class="bi bi-check-circle-fill"></i>
+                                    </div>
+                                    <div class="modern-widget-label">On Time Today</div>
+                                    <div class="modern-widget-value">{{$data[1]}}</div>
+                                    <div class="d-flex justify-content-between align-items-center mt-3">
+                                        <a href="javascript:void(0);" class="text-decoration-none widget-more-info" data-widget="on-time" style="color: var(--success); font-size: 0.875rem;">
+                                            More info <i class="bi bi-arrow-right ms-1"></i>
+                                        </a>
                                     </div>
                                 </div>
                             </div>
                             <div class="col-xl-3 col-md-6">
-                                <div class="card mini-stat bg-primary text-white">
-                                    <div class="card-body">
-                                        <div class="mb-4">
-                                            <div class="float-left mini-stat-img mr-3">
-                                                <i class="ti-alert" style="font-size: 20px"></i>
-                                            </div>
-                                            <h5 class="font-16 text-uppercase mt-0 text-white-50">Late <br> Today</h5>
-                                            <h4 class="font-500">{{$data[2]}}<i class=" text-success ml-2"></i></h4>
-                                        </div>
-                                        <div class="pt-2">
-                                            <div class="float-right">
-                                                <a href="javascript:void(0);" class="text-white-50 widget-more-info" data-widget="late">
-                                                    <i class="mdi mdi-arrow-right h5"></i>
-                                                </a>
-                                            </div>
-                                            <p class="text-white-50 mb-0 widget-more-info" data-widget="late">More info</p>
-                                        </div>
+                                <div class="modern-widget slide-up" style="animation-delay: 0.3s;">
+                                    <div class="modern-widget-icon modern-widget-icon-warning">
+                                        <i class="bi bi-exclamation-triangle-fill"></i>
+                                    </div>
+                                    <div class="modern-widget-label">Late Today</div>
+                                    <div class="modern-widget-value">{{$data[2]}}</div>
+                                    <div class="d-flex justify-content-between align-items-center mt-3">
+                                        <a href="javascript:void(0);" class="text-decoration-none widget-more-info" data-widget="late" style="color: var(--warning); font-size: 0.875rem;">
+                                            More info <i class="bi bi-arrow-right ms-1"></i>
+                                        </a>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                   <!-- Row 2: Detailed Metrics -->
-                   <div class="row">
+                   <!-- Row 2: Detailed Metrics - Modern Widgets -->
+                   <div class="row g-4 mb-4">
                             <div class="col-xl-3 col-md-6">
-                                <div class="card mini-stat bg-primary text-white">
-                                    <div class="card-body">
-                                        <div class="mb-4">
-                                            <div class="float-left mini-stat-img mr-3">
-                                                <span class="ti-mobile" style="font-size: 20px"></span>
-                                            </div>
-                                            <h5 class="font-16 text-uppercase mt-0 text-white-50">Mobile CheckIn <br> Today</h5>
-                                           <h4 class="font-500 ">{{ $more['mobile_checkins_today'] }}</h4>
-                                        </div>
-                                        <div class="pt-2">
-                                            <div class="float-right">
-                                                <a href="javascript:void(0);" class="text-white-50 widget-more-info" data-widget="mobile-checkins">
-                                                    <i class="mdi mdi-arrow-right h5"></i>
-                                                </a>
-                                            </div>
-                                            <p class="text-white-50 mb-0 widget-more-info" data-widget="mobile-checkins">More info</p>
-                                        </div>
+                                <div class="modern-widget slide-up" style="animation-delay: 0.4s;">
+                                    <div class="modern-widget-icon modern-widget-icon-info">
+                                        <i class="bi bi-phone-fill"></i>
+                                    </div>
+                                    <div class="modern-widget-label">Mobile CheckIn Today</div>
+                                    <div class="modern-widget-value">{{ $more['mobile_checkins_today'] }}</div>
+                                    <div class="d-flex justify-content-between align-items-center mt-3">
+                                        <a href="javascript:void(0);" class="text-decoration-none widget-more-info" data-widget="mobile-checkins" style="color: var(--info); font-size: 0.875rem;">
+                                            More info <i class="bi bi-arrow-right ms-1"></i>
+                                        </a>
                                     </div>
                                 </div>
                             </div>
                             <div class="col-xl-3 col-md-6">
-                                <div class="card mini-stat bg-primary text-white">
-                                    <div class="card-body">
-                                        <div class="mb-4">
-                                            <div class="float-left mini-stat-img mr-3">
-                                                <i class="ti-save-alt" style="font-size: 20px"></i>
-                                            </div>
-                                            <h6  class="font-16 text-uppercase mt-0 text-white-50" >Device CheckIn <br> Today</h6>
-                                            <h4 class="font-500 ">{{ $more['device_checkins_today'] }}<i class="text-danger ml-2"></i></h4>
-                                        </div>
-                                        <div class="pt-2">
-                                            <div class="float-right">
-                                                <a href="javascript:void(0);" class="text-white-50 widget-more-info" data-widget="device-checkins">
-                                                    <i class="mdi mdi-arrow-right h5"></i>
-                                                </a>
-                                            </div>
-                                            <p class="text-white-50 mb-0 widget-more-info" data-widget="device-checkins">More info</p>
-                                        </div>
+                                <div class="modern-widget slide-up" style="animation-delay: 0.5s;">
+                                    <div class="modern-widget-icon modern-widget-icon-primary">
+                                        <i class="bi bi-device-hdd-fill"></i>
+                                    </div>
+                                    <div class="modern-widget-label">Device CheckIn Today</div>
+                                    <div class="modern-widget-value">{{ $more['device_checkins_today'] }}</div>
+                                    <div class="d-flex justify-content-between align-items-center mt-3">
+                                        <a href="javascript:void(0);" class="text-decoration-none widget-more-info" data-widget="device-checkins" style="color: var(--primary); font-size: 0.875rem;">
+                                            More info <i class="bi bi-arrow-right ms-1"></i>
+                                        </a>
                                     </div>
                                 </div>
                             </div>
                             <div class="col-xl-3 col-md-6">
-                                <div class="card mini-stat bg-primary text-white">
-                                    <div class="card-body">
-                                        <div class="mb-4">
-                                            <div class="float-left mini-stat-img mr-3">
-                                                <i class=" ti-receipt " style="font-size: 20px"></i>
-                                            </div>
-                                            <h5 class="font-16 text-uppercase mt-0 text-white-50">Early Leave <br> Today</h5>
-                                            <h4 class="font-500">{{ $more['early_leave_today'] }} <i class=" text-success ml-2"></i></h4>
-                                        </div>
-                                        <div class="pt-2">
-                                            <div class="float-right">
-                                                <a href="javascript:void(0);" class="text-white-50 widget-more-info" data-widget="early-leave">
-                                                    <i class="mdi mdi-arrow-right h5"></i>
-                                                </a>
-                                            </div>
-                                            <p class="text-white-50 mb-0 widget-more-info" data-widget="early-leave">More info</p>
-                                        </div>
+                                <div class="modern-widget slide-up" style="animation-delay: 0.6s;">
+                                    <div class="modern-widget-icon modern-widget-icon-warning">
+                                        <i class="bi bi-arrow-left-circle-fill"></i>
+                                    </div>
+                                    <div class="modern-widget-label">Early Leave Today</div>
+                                    <div class="modern-widget-value">{{ $more['early_leave_today'] }}</div>
+                                    <div class="d-flex justify-content-between align-items-center mt-3">
+                                        <a href="javascript:void(0);" class="text-decoration-none widget-more-info" data-widget="early-leave" style="color: var(--warning); font-size: 0.875rem;">
+                                            More info <i class="bi bi-arrow-right ms-1"></i>
+                                        </a>
                                     </div>
                                 </div>
                             </div>
                             <div class="col-xl-3 col-md-6">
-                                <div class="card mini-stat bg-primary text-white">
-                                    <div class="card-body">
-                                        <div class="mb-4">
-                                            <div class="float-left mini-stat-img mr-3">
-                                                <i class="ti-na" style="font-size: 20px"></i>
-                                            </div>
-                                            <h5 class="font-16 text-uppercase mt-0 text-white-50">Absent <br> Today</h5>
-                                            <h4 class="font-500">{{ $more['absent_today'] }}<i class=" text-success ml-2"></i></h4>
-                                        </div>
-                                        <div class="pt-2">
-                                            <div class="float-right">
-                                                <a href="javascript:void(0);" class="text-white-50 widget-more-info" data-widget="absent">
-                                                    <i class="mdi mdi-arrow-right h5"></i>
-                                                </a>
-                                            </div>
-                                            <p class="text-white-50 mb-0 widget-more-info" data-widget="absent">More info</p>
-                                        </div>
+                                <div class="modern-widget slide-up" style="animation-delay: 0.7s;">
+                                    <div class="modern-widget-icon modern-widget-icon-danger">
+                                        <i class="bi bi-x-circle-fill"></i>
+                                    </div>
+                                    <div class="modern-widget-label">Absent Today</div>
+                                    <div class="modern-widget-value">{{ $more['absent_today'] }}</div>
+                                    <div class="d-flex justify-content-between align-items-center mt-3">
+                                        <a href="javascript:void(0);" class="text-decoration-none widget-more-info" data-widget="absent" style="color: var(--danger); font-size: 0.875rem;">
+                                            More info <i class="bi bi-arrow-right ms-1"></i>
+                                        </a>
                                     </div>
                                 </div>
                             </div>
-                                            </div>
+                        </div>
 
                         <!-- Row 3: New Metrics -->
                         <div class="row">
