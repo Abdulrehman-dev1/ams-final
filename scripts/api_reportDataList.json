@@ -1661,5 +1661,113 @@
     "personCode": "03",
     "deviceName": "Study",
     "location": {}
+  },
+  {
+    "week": "Tuesday",
+    "dataSource": "Mobile App",
+    "handleType": "--",
+    "clockDate": "18-11-2025",
+    "clockTime": "20:10",
+    "firstName": "Ahsan",
+    "fullName": "Ahsan",
+    "fullPath": "Control",
+    "lastName": "",
+    "personCode": "008",
+    "remark": "Searle pharma ",
+    "location": {
+      "latitude": "24.9069709",
+      "detailAddress": "17 Estate Ave, Metroville Sindh Industrial Trading Estate, Karachi, Pakistan",
+      "briefAddress": "Estate Avenue",
+      "longitude": "67.008404"
+    }
+  },
+  {
+    "week": "Tuesday",
+    "dataSource": "Mobile App",
+    "handleType": "--",
+    "clockDate": "18-11-2025",
+    "clockTime": "20:25",
+    "firstName": "Shahzaib",
+    "fullName": "Shahzaib",
+    "fullPath": "Control",
+    "lastName": "",
+    "personCode": "004",
+    "remark": "zh hospital ",
+    "location": {
+      "latitude": "24.9246585",
+      "detailAddress": "W2FW+X76, North Nazimabad Town, Karachi, 74600, Pakistan",
+      "briefAddress": "North Nazimabad Town",
+      "longitude": "67.0455145"
+    }
+  },
+  {
+    "week": "Tuesday",
+    "dataSource": "Mobile App",
+    "handleType": "--",
+    "clockDate": "18-11-2025",
+    "clockTime": "20:35",
+    "firstName": "Ali",
+    "fullName": "Ali Nawaz",
+    "fullPath": "Al Rehman",
+    "lastName": "Nawaz",
+    "personCode": "4239663930",
+    "remark": "AGS call center visit location \nAamir \nARS 21643\nLocation and Guard Okay",
+    "location": {
+      "latitude": "24.8675224",
+      "detailAddress": "G 5, Jinnah Housing Society P.E.C.H.S., Karachi, Pakistan",
+      "briefAddress": "G 5",
+      "longitude": "67.0821367"
+    }
+  },
+  {
+    "week": "Tuesday",
+    "dataSource": "Mobile App",
+    "handleType": "--",
+    "clockDate": "18-11-2025",
+    "clockTime": "21:18",
+    "firstName": "Ahsan",
+    "fullName": "Ahsan",
+    "fullPath": "Control",
+    "lastName": "",
+    "personCode": "008",
+    "remark": "ziauddin hospital ",
+    "location": {
+      "latitude": "24.9247248",
+      "detailAddress": "Deer colony block u norh, W2FW+V5Q, Nazimabad, Karachi, 74600, Pakistan",
+      "briefAddress": "Dr. Ziauddin hospital",
+      "longitude": "67.0454827"
+    }
+  },
+  {
+    "week": "Tuesday",
+    "dataSource": "Device",
+    "handleType": "--",
+    "clockDate": "18-11-2025",
+    "clockTime": "21:35",
+    "deviceId": "3b60f28b03f341699de5a983dd9c279b",
+    "deviceSerial": "AB1494816",
+    "firstName": "Khurram",
+    "fullName": "Khurram hussain",
+    "fullPath": "Study",
+    "lastName": "hussain",
+    "personCode": "07",
+    "deviceName": "Study",
+    "location": {}
+  },
+  {
+    "week": "Tuesday",
+    "dataSource": "Device",
+    "handleType": "--",
+    "clockDate": "18-11-2025",
+    "clockTime": "21:35",
+    "deviceId": "3b60f28b03f341699de5a983dd9c279b",
+    "deviceSerial": "AB1494816",
+    "firstName": "Khurram",
+    "fullName": "Khurram hussain",
+    "fullPath": "Study",
+    "lastName": "hussain",
+    "personCode": "07",
+    "deviceName": "Study",
+    "location": {}
   }
 ]
