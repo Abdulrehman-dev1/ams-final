@@ -34,10 +34,6 @@
         <!-- Management Section -->
         <div class="menu-section" style="margin-bottom: 2rem;">
             <div class="menu-title" style="padding: 0.5rem 1.5rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.5); font-weight: 600;">Management</div>
-            <a href="{{ route('sheet-report') }}" class="menu-item {{ request()->is('sheet-report') || request()->is('sheet-report/*') ? 'active' : '' }}">
-                <i class="bi bi-file-earmark-text"></i>
-                <span>Sheet Report</span>
-            </a>
             <a href="{{ route('admin.transactions.index') }}" class="menu-item {{ request()->is('admin/transactions') ? 'active' : '' }}">
                 <i class="bi bi-card-checklist"></i>
                 <span>Transactions</span>
