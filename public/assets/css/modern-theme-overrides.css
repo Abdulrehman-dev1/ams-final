@@ -1,0 +1,6 @@
+.dataTable > tbody > tr > td:first-child::before,
+.dataTable > tbody > tr > td:first-child::after {
+    display: none !important;
+    content: none !important;
+}
+

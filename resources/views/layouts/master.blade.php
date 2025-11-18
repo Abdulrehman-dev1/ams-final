@@ -12,11 +12,11 @@
 <body style="background: #f9fafb;">
     <div id="wrapper" style="display: flex;">
          <!-- Sidebar Overlay for Mobile -->
-         <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+         <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar(false)"></div>
          
          @include('layouts.modern-sidebar')
          
-         <div style="flex: 1; margin-left: 260px; min-height: 100vh; transition: var(--transition);" id="mainContent">
+         <div style="flex: 1; margin-left: 260px; min-height: 100vh; transition: var(--transition); overflow: auto !important;" id="mainContent">
             @include('layouts.modern-header')
             <main class="page-content" style="padding: 2rem; min-height: calc(100vh - 80px);">
                @include('layouts.settings')
@@ -29,46 +29,61 @@
     @include('includes.flash')
     
     <script>
-    function toggleSidebar() {
+    function toggleSidebar(force) {
         const sidebar = document.getElementById('modern-sidebar');
         const overlay = document.getElementById('sidebarOverlay');
         const mainContent = document.getElementById('mainContent');
-        
-        sidebar.classList.toggle('active');
-        overlay.classList.toggle('active');
-        
-        if (window.innerWidth <= 768) {
-            if (sidebar.classList.contains('active')) {
-                mainContent.style.marginLeft = '0';
-            } else {
+        const isMobile = window.innerWidth <= 991;
+
+        if (!sidebar || !overlay || !mainContent) {
+            return;
+        }
+
+        if (isMobile) {
+            const shouldOpen = typeof force === 'boolean'
+                ? force
+                : !sidebar.classList.contains('active');
+
+            sidebar.classList.toggle('active', shouldOpen);
+            overlay.classList.toggle('active', shouldOpen);
+            document.body.classList.toggle('sidebar-open', shouldOpen);
+
+            if (!shouldOpen) {
                 mainContent.style.marginLeft = '0';
             }
+        } else {
+            // Ensure desktop layout keeps margin
+            mainContent.style.marginLeft = '260px';
         }
     }
-    
-    // Close sidebar when clicking outside on mobile
-    document.getElementById('sidebarOverlay')?.addEventListener('click', function() {
-        if (window.innerWidth <= 768) {
-            toggleSidebar();
-        }
-    });
-    
-    // Handle window resize
-    window.addEventListener('resize', function() {
+
+    function applyResponsiveLayout() {
         const sidebar = document.getElementById('modern-sidebar');
         const overlay = document.getElementById('sidebarOverlay');
         const mainContent = document.getElementById('mainContent');
-        
-        if (window.innerWidth > 768) {
+
+        if (!sidebar || !overlay || !mainContent) {
+            return;
+        }
+
+        if (window.innerWidth <= 991) {
+            sidebar.classList.remove('collapsed');
+            mainContent.style.marginLeft = '0';
+
+            if (!sidebar.classList.contains('active')) {
+                overlay.classList.remove('active');
+                document.body.classList.remove('sidebar-open');
+            }
+        } else {
             sidebar.classList.remove('active');
             overlay.classList.remove('active');
+            document.body.classList.remove('sidebar-open');
             mainContent.style.marginLeft = '260px';
-        } else {
-            if (!sidebar.classList.contains('active')) {
-                mainContent.style.marginLeft = '0';
-            }
         }
-    });
+    }
+
+    document.addEventListener('DOMContentLoaded', applyResponsiveLayout);
+    window.addEventListener('resize', applyResponsiveLayout);
     </script>
     </body>
 </html>

@@ -34,50 +34,22 @@
         <!-- Management Section -->
         <div class="menu-section" style="margin-bottom: 2rem;">
             <div class="menu-title" style="padding: 0.5rem 1.5rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.5); font-weight: 600;">Management</div>
-            <a href="{{ route('admin.attendances.index') }}" class="menu-item {{ request()->is('admin/attendances') || request()->is('admin/attendances/*') ? 'active' : '' }}">
-                <i class="bi bi-calendar-check"></i>
-                <span>Attendance Sheet</span>
-            </a>
-            <a href="{{ route('acs.daily.index') }}" class="menu-item {{ request()->is('admin/acs/daily') || request()->is('admin/acs/daily/*') ? 'active' : '' }}">
-                <i class="bi bi-calendar-day"></i>
-                <span>Daily Attendance</span>
-            </a>
-            <a href="{{ url('schedule') }}" class="menu-item {{ request()->is('schedule') || request()->is('schedule/*') ? 'active' : '' }}">
-                <i class="bi bi-clock"></i>
-                <span>Schedule</span>
-            </a>
             <a href="{{ route('sheet-report') }}" class="menu-item {{ request()->is('sheet-report') || request()->is('sheet-report/*') ? 'active' : '' }}">
                 <i class="bi bi-file-earmark-text"></i>
                 <span>Sheet Report</span>
             </a>
-            <a href="{{ route('attendance') }}" class="menu-item {{ request()->is('attendance') || request()->is('attendance/*') ? 'active' : '' }}">
-                <i class="bi bi-journal-text"></i>
-                <span>Attendance Logs</span>
-            </a>
-            <a href="{{ route('indexLatetime') }}" class="menu-item {{ request()->is('latetime') || request()->is('latetime/*') ? 'active' : '' }}">
-                <i class="bi bi-exclamation-triangle"></i>
-                <span>Late Time</span>
-            </a>
-            <a href="{{ route('leave') }}" class="menu-item {{ request()->is('leave') || request()->is('leave/*') ? 'active' : '' }}">
-                <i class="bi bi-door-open"></i>
-                <span>Leave</span>
-            </a>
-            <a href="{{ route('indexOvertime') }}" class="menu-item {{ request()->is('overtime') || request()->is('overtime/*') ? 'active' : '' }}">
-                <i class="bi bi-alarm"></i>
-                <span>Over Time</span>
-            </a>
-            <a href="{{ route('admin.reports.index') }}" class="menu-item {{ request()->is('admin/reports') ? 'active' : '' }}">
-                <i class="bi bi-graph-up"></i>
-                <span>Reports</span>
+            <a href="{{ route('admin.transactions.index') }}" class="menu-item {{ request()->is('admin/transactions') ? 'active' : '' }}">
+                <i class="bi bi-card-checklist"></i>
+                <span>Transactions</span>
             </a>
         </div>
 
         <!-- Tools Section -->
         <div class="menu-section" style="margin-bottom: 2rem;">
             <div class="menu-title" style="padding: 0.5rem 1.5rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.5); font-weight: 600;">Tools</div>
-            <a href="{{ route('finger_device.index') }}" class="menu-item {{ request()->is('finger_device') || request()->is('finger_device/*') ? 'active' : '' }}">
-                <i class="bi bi-fingerprint"></i>
-                <span>Biometric Device</span>
+            <a href="{{ route('admin.token.tools') }}" class="menu-item {{ request()->is('admin/token-tools') ? 'active' : '' }}">
+                <i class="bi bi-key"></i>
+                <span>Token Tools</span>
             </a>
         </div>
 
@@ -94,18 +66,6 @@
                 <a href="{{ route('admin.hcc.attendance.index') }}" class="menu-item {{ request()->is('admin/hcc/attendance') || request()->is('admin/hcc/attendance/*') ? 'active' : '' }}" style="font-size: 0.875rem; padding: 0.5rem 1rem;">
                     <i class="bi bi-list-ul"></i>
                     <span>Attendance Records</span>
-                </a>
-                @endif
-                @if(Route::has('admin.hcc.devices.index'))
-                <a href="{{ route('admin.hcc.devices.index') }}" class="menu-item {{ request()->is('admin/hcc/devices') || request()->is('admin/hcc/devices/*') ? 'active' : '' }}" style="font-size: 0.875rem; padding: 0.5rem 1rem;">
-                    <i class="bi bi-device-hdd"></i>
-                    <span>Devices</span>
-                </a>
-                @endif
-                @if(Route::has('admin.hcc.backfill.form'))
-                <a href="{{ route('admin.hcc.backfill.form') }}" class="menu-item {{ request()->is('admin/hcc/backfill') ? 'active' : '' }}" style="font-size: 0.875rem; padding: 0.5rem 1rem;">
-                    <i class="bi bi-calendar-range"></i>
-                    <span>Backfill Data</span>
                 </a>
                 @endif
             </div>
@@ -125,12 +85,6 @@ function toggleSubmenu(element) {
         submenu.style.display = 'none';
         icon.style.transform = 'rotate(0deg)';
     }
-}
-
-// Mobile menu toggle
-function toggleSidebar() {
-    const sidebar = document.getElementById('modern-sidebar');
-    sidebar.classList.toggle('active');
 }
 </script>
 

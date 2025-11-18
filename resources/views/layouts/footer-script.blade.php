@@ -14,7 +14,7 @@
 <!-- Sweet-Alert  -->
 {{-- <script src="{{ URL::asset('plugins/sweet-alert2/sweetalert2.min.js') }}"></script>
 <script src="{{ URL::asset('assets/pages/sweet-alert.init.js') }}"></script>   --}}
-<script src="/js/sweetalert.min.js"></script>
+<script src="{{ asset('js/sweetalert.min.js') }}"></script>
 <!-- Responsive-table-->
 <script src="{{ URL::asset('plugins/RWD-Table-Patterns/dist/js/rwd-table.min.js') }}"></script>      
 <!-- Required datatable js -->

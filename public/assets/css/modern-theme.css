@@ -74,7 +74,6 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: var(--shadow);
   border: 1px solid var(--gray-200);
   transition: var(--transition);
-  overflow: hidden;
 }
 
 .modern-card:hover {
@@ -175,13 +174,17 @@ h1, h2, h3, h4, h5, h6 {
 .modern-sidebar {
   background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
   box-shadow: var(--shadow-xl);
-  min-height: 100vh;
+  height: 100vh;
   position: fixed;
   left: 0;
   top: 0;
   width: 260px;
   z-index: 1000;
   transition: var(--transition);
+  transform: translateX(0);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
 }
 
 .modern-sidebar .logo {
@@ -232,6 +235,59 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 1.25rem;
   width: 24px;
   text-align: center;
+}
+
+.modern-sidebar .menu-section {
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.modern-sidebar .menu-section:last-of-type {
+  border-bottom: none;
+  padding-bottom: 2rem;
+}
+
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  z-index: 999;
+  opacity: 0;
+  visibility: hidden;
+  transition: var(--transition);
+}
+
+.sidebar-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+
+
+@media (max-width: 991.98px) {
+  #mobileMenuToggle {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modern-sidebar {
+    transform: translateX(-100%);
+  }
+
+  .modern-sidebar.active {
+    transform: translateX(0);
+  }
+
+  #mainContent {
+    margin-left: 0 !important;
+  }
+}
+
+@media (min-width: 992px) {
+  .sidebar-overlay {
+    display: none !important;
+  }
 }
 
 /* Modern Header */
@@ -295,6 +351,36 @@ h1, h2, h3, h4, h5, h6 {
   padding: 1rem;
   color: var(--gray-700);
 }
+
+.modern-table-wrapper .dataTables_info,
+.modern-table-wrapper .dataTables_paginate {
+  display: none !important;
+}
+
+.modern-table-wrapper .dataTables_filter,
+.modern-table-wrapper .dt-buttons {
+  display: none !important;
+}
+
+.modern-table-wrapper {
+  margin-bottom: 0;
+}
+
+.modern-pagination .pagination {
+  margin-bottom: 0;
+}
+
+/* Table Responsive Fix */
+.table-responsive {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+.modern-card .table-responsive {
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+}
+
 
 /* Modern Forms */
 .modern-form-group {

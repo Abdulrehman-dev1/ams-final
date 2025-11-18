@@ -116,7 +116,12 @@ class TestHikToken extends Command
                 ]
             );
 
-            if ($this->confirm('Do you want to save this token to .env?', true)) {
+            $saveToken = true;
+            if ($this->input->isInteractive()) {
+                $saveToken = $this->confirm('Do you want to save this token to .env?', true);
+            }
+
+            if ($saveToken) {
                 $this->updateEnvFile('HIK_TOKEN', $tokenData['accessToken']);
                 if (!empty($tokenData['areaDomain'])) {
                     $this->updateEnvFile('HIK_AREA_DOMAIN', $tokenData['areaDomain']);
@@ -163,7 +168,11 @@ class TestHikToken extends Command
             ]
         );
 
-        if ($this->confirm('Do you want to test this token with a sample API call?', true)) {
+        $shouldTest = $this->input->isInteractive()
+            ? $this->confirm('Do you want to test this token with a sample API call?', true)
+            : false;
+
+        if ($shouldTest) {
             $this->testTokenWithApi($token);
         }
 

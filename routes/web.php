@@ -7,6 +7,7 @@ use App\Http\Controllers\FingerDevicesControlller;
 use App\Http\Controllers\Admin\AttendanceAdminController;
 use App\Http\Controllers\AdminRollupWebController;
 use App\Http\Controllers\AdminAcsDailyController;
+use App\Http\Controllers\Admin\TransactionController;
 use App\Http\Controllers\AttendanceController;
 use Illuminate\Http\Request;
 use App\Models\AcsEvent;
@@ -31,6 +32,12 @@ Route::get('/admin/daily-people/{id}/edit', [AttendanceController::class, 'daily
     ->name('acs.people.edit');
 Route::get('/admin/daily-people/{id}/profile', [AttendanceController::class, 'dailyPeopleProfile'])
     ->name('acs.people.profile');
+Route::get('/admin/daily-people/{id}/stats', [AttendanceController::class, 'dailyPeopleStats'])
+    ->name('acs.people.stats');
+Route::get('/admin/token-tools', [AttendanceController::class, 'tokenTools'])
+    ->name('admin.token.tools');
+Route::post('/admin/token-tools/fetch', [AttendanceController::class, 'runHikTokenFetch'])
+    ->name('admin.token.fetch');
 Route::put('/admin/daily-people/{id}', [AttendanceController::class, 'dailyPeopleUpdate'])
     ->name('acs.people.update');
 Route::post('/admin/daily-people/{id}/toggle-status', [AttendanceController::class, 'dailyPeopleToggleStatus'])
@@ -73,6 +80,11 @@ Route::middleware(['web','auth']) // yahan apna admin middleware add kar saktay 
             ->name('hcc.backfill.process');
         Route::get('/hcc/attendance/{id}', [\App\Http\Controllers\HccAttendanceController::class, 'show'])
             ->name('hcc.attendance.show');
+
+        Route::get('/transactions', [TransactionController::class, 'index'])
+            ->name('transactions.index');
+        Route::post('/transactions/build', [TransactionController::class, 'build'])
+            ->name('transactions.build');
     });
 Route::post('/admin/attendances/sync-now', [AttendanceAdminController::class, 'syncNow'])
     ->name('admin.attendances.syncNow');

@@ -62,7 +62,7 @@ body {
 }
 
 html {
-  overflow-x: hidden;
+ 
   position: relative;
   min-height: 100%;
 }
@@ -3779,16 +3779,10 @@ Invoice
   }
 }
 
-@media (min-width: 768px) and (max-width: 991px) {
-  body {
-    overflow-x: hidden;
-  }
-}
+
 
 @media (max-width: 768px) {
-  body {
-    overflow-x: hidden;
-  }
+
   .topbar-left {
     width: 70px !important;
   }
@@ -3896,10 +3890,10 @@ Invoice
     .table-responsive{ overflow: visible; }
     table.table thead{ display:none; }
     table.table tbody tr{
-      display:block; margin-bottom:12px; border:1px solid rgba(0,0,0,.08);
-      border-radius:12px; padding:.6rem .75rem;
+      display:block;  border:1px solid rgba(0,0,0,.08);
+       padding:.6rem .75rem;
     }
-    table.table tbody td{ display:flex; justify-content:space-between; gap:.75rem; border:none !important; }
+    table.table tbody td{ display:flex; border:none !important; }
     table.table tbody td::before{
       content: attr(data-th);
       font-weight:600; color:#6c757d;

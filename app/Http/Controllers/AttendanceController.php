@@ -13,13 +13,16 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use App\Models\DailyEmployee;
 use App\Models\AcsEvent;
+use App\Models\Transaction;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Arr;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Support\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Str;
 class AttendanceController extends Controller
 {   
     //show attendance 
@@ -637,17 +640,17 @@ protected function findGroupNameInArray(array $arr, string $groupId): ?string
         'name'        => '',
         'person_code' => '',
         'status'      => '',
-        'perPage'     => 25,
+        'perPage'     => 10,
     ]);
 
     // Normalize perPage bounds
-    $perPage = (int) ($filters['perPage'] ?? 25);
+    $perPage = (int) ($filters['perPage'] ?? 10);
     $perPage = max(10, min(200, $perPage));
 
     // 2) Build query
     $q = DailyEmployee::query()
         ->select(['id','head_pic_url','full_name','first_name','last_name',
-                  'phone','person_code','start_date','end_date','group_name','is_enabled',
+                  'phone','person_code','person_id','start_date','end_date','group_name','is_enabled',
                   'latitude','longitude','time_in','time_out']);
 
     if (!empty($filters['person_code'])) {
@@ -687,6 +690,7 @@ protected function findGroupNameInArray(array $arr, string $groupId): ?string
             'last_name'   => $r->last_name,
             'phone'       => $r->phone,
             'person_code' => $r->person_code,
+            'person_id'   => $r->person_id,
             'group_name'  => $r->group_name,
             'start_date'  => $r->start_date ? $r->start_date->timezone($tz)->toDateString() : null,
             'end_date'    => $r->end_date   ? $r->end_date->timezone($tz)->toDateString()   : null,
@@ -846,7 +850,7 @@ public function dailyPeopleSetFilters(Request $req)
         'name'        => trim((string)$req->input('name','')),
         'person_code' => trim((string)$req->input('person_code','')),
         'status'      => trim((string)$req->input('status','')),
-        'perPage'     => (int)$req->input('perPage', 25),
+        'perPage'     => (int)$req->input('perPage', 10),
     ];
     if ($filters['perPage'] < 10)  $filters['perPage'] = 10;
     if ($filters['perPage'] > 200) $filters['perPage'] = 200;
@@ -1100,6 +1104,132 @@ public function dailyPeopleProfile(Request $req, $id)
     ]);
 }
 
+public function dailyPeopleStats(Request $request, $id)
+{
+    $tz = config('app.timezone', 'Asia/Karachi');
+    $employee = DailyEmployee::findOrFail($id);
+
+    if (empty($employee->person_code)) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Employee is missing a person code.',
+        ], 422);
+    }
+
+    $defaultEnd = Carbon::now($tz)->endOfDay();
+    $defaultStart = $defaultEnd->copy()->subDays(6)->startOfDay();
+
+    try {
+        $start = $request->query('start_date')
+            ? Carbon::parse($request->query('start_date'), $tz)->startOfDay()
+            : $defaultStart;
+    } catch (\Throwable $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Invalid start date provided.',
+        ], 422);
+    }
+
+    try {
+        $end = $request->query('end_date')
+            ? Carbon::parse($request->query('end_date'), $tz)->endOfDay()
+            : $defaultEnd;
+    } catch (\Throwable $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Invalid end date provided.',
+        ], 422);
+    }
+
+    if ($end->lessThan($start)) {
+        [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
+    }
+
+    $transactions = Transaction::query()
+        ->where('person_code', $employee->person_code)
+        ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
+        ->orderBy('date')
+        ->get();
+
+    $presentDays = $transactions->pluck('date')->unique()->count();
+    $workingDays = $this->countWorkingDays($start->copy(), $end->copy());
+    $absentDays = max($workingDays - $presentDays, 0);
+    $overtimeMinutes = (int) $transactions->sum(function ($transaction) {
+        return (int) ($transaction->overtime_minutes ?? 0);
+    });
+
+    $workMinutes = 0;
+    foreach ($transactions as $transaction) {
+        $checkIn = $transaction->check_in;
+        $checkOut = $transaction->check_out;
+        if ($checkIn && $checkOut) {
+            $workMinutes += max($checkIn->diffInMinutes($checkOut), 0);
+        }
+    }
+
+    $name = $employee->full_name ?: trim(($employee->first_name ?? '') . ' ' . ($employee->last_name ?? ''));
+    if ($name === '') {
+        $name = '—';
+    }
+
+    $initial = mb_strtoupper(mb_substr($name !== '—' ? $name : ($employee->person_code ?? '—'), 0, 1, 'UTF-8'), 'UTF-8');
+
+    return response()->json([
+        'success' => true,
+        'employee' => [
+            'name' => $name,
+            'person_code' => $employee->person_code ?: '—',
+            'group' => $employee->group_name ?: '—',
+            'photo_url' => $employee->photo_url ?? $employee->head_pic_url ?? null,
+            'initial' => $initial,
+        ],
+        'range' => [
+            'start' => $start->toDateString(),
+            'end' => $end->toDateString(),
+            'label' => $start->toFormattedDateString() . ' – ' . $end->toFormattedDateString(),
+            'working_days' => $workingDays,
+        ],
+        'stats' => [
+            'present_days' => $presentDays,
+            'absent_days' => $absentDays,
+            'overtime_minutes' => $overtimeMinutes,
+            'work_minutes' => $workMinutes,
+            'work_formatted' => $this->formatMinutes($workMinutes),
+            'overtime_formatted' => $this->formatMinutes($overtimeMinutes),
+        ],
+    ]);
+}
+
+    public function tokenTools()
+    {
+        return view('admin.token_tools', [
+            'tokenOutput' => session('token_output'),
+        ]);
+    }
+
+    public function runHikTokenFetch(Request $request)
+    {
+        try {
+            Artisan::call('hik:test-token', [
+                'action' => 'fetch',
+                '--no-interaction' => true,
+            ]);
+            $output = Artisan::output();
+
+            return redirect()->route('admin.token.tools')->with([
+                'alert_type' => 'success',
+                'alert_title' => 'Token command executed',
+                'alert_message' => 'hik:test-token fetch finished. Output is shown below.',
+                'token_output' => trim($output),
+            ]);
+        } catch (\Throwable $e) {
+            return redirect()->route('admin.token.tools')->with([
+                'alert_type' => 'error',
+                'alert_title' => 'Token command failed',
+                'alert_message' => $e->getMessage(),
+            ]);
+        }
+    }
 
 protected function summarizeEmployeeAttendance(DailyEmployee $employee, Collection $events, Carbon $start, Carbon $end, string $tz, bool $includeDaily = false): array
 {

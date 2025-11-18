@@ -63,3 +63,6 @@ Route::prefix('playwright')->group(function () {
     Route::post('/save-attendance', [\App\Http\Controllers\Api\PlaywrightController::class, 'saveAttendance']);
     Route::post('/save-devices', [\App\Http\Controllers\Api\PlaywrightController::class, 'saveDevices']);
 });
+
+Route::post('/transactions/sync', [\App\Http\Controllers\Api\TransactionSyncController::class, 'sync'])
+    ->name('api.transactions.sync');

@@ -451,15 +451,26 @@ class AdminAcsDailyController extends Controller
             ]);
 
             // Return immediately - process runs in background
+            // Redirect back to the page that initiated the sync
+            $redirectTo = $req->input('redirect_to');
+            $flashData = [
+                'ok' => true,
+                'message' => 'Scraper sync started in background. It may take 1-2 minutes to complete. Please refresh the page after a moment to see updated data.',
+                'type' => 'scraper',
+                'log_file' => basename($logFile),
+                'count_before' => $countBefore
+            ];
+            
+            if ($redirectTo === 'hcc_attendance') {
+                return redirect()
+                    ->route('admin.hcc.attendance.index', request()->query())
+                    ->with('success', 'Scraper sync started in background. Check logs for progress.')
+                    ->with('flash', $flashData);
+            }
+            
             return redirect()
                 ->route('acs.daily.index', request()->query())
-                ->with('flash', [
-                    'ok' => true,
-                    'message' => 'Scraper sync started in background. It may take 1-2 minutes to complete. Please refresh the page after a moment to see updated data.',
-                    'type' => 'scraper',
-                    'log_file' => basename($logFile),
-                    'count_before' => $countBefore
-                ]);
+                ->with('flash', $flashData);
 
         } catch (\Exception $e) {
             Log::error('HCC Scraper sync exception', [
@@ -467,13 +478,24 @@ class AdminAcsDailyController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
 
+            // Redirect back to the page that initiated the sync
+            $redirectTo = $req->input('redirect_to');
+            $errorFlash = [
+                'ok' => false,
+                'message' => 'Failed to start scraper sync: ' . $e->getMessage(),
+                'type' => 'scraper'
+            ];
+            
+            if ($redirectTo === 'hcc_attendance') {
+                return redirect()
+                    ->route('admin.hcc.attendance.index', request()->query())
+                    ->with('error', 'Failed to start scraper sync: ' . $e->getMessage())
+                    ->with('flash', $errorFlash);
+            }
+            
             return redirect()
                 ->route('acs.daily.index', request()->query())
-                ->with('flash', [
-                    'ok' => false,
-                    'message' => 'Failed to start scraper sync: ' . $e->getMessage(),
-                    'type' => 'scraper'
-                ]);
+                ->with('flash', $errorFlash);
         }
     }
 

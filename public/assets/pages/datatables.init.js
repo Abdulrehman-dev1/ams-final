@@ -18,7 +18,7 @@ $(document).ready(function () {
             infoEmpty: 'No entries available',
             zeroRecords: 'No matching records found'
         },
-        dom: "<'row mb-3'<'col-sm-12 col-md-6'f><'col-sm-12 col-md-6 text-md-end'B>>" +
+        dom: "<'row '<'col-sm-12 col-md-6'f><'col-sm-12 col-md-6 text-md-end'B>>" +
             "<'row'<'col-sm-12'tr>>" +
             "<'row mt-3'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
         buttons: ['copy', 'excel', 'pdf', 'colvis']
@@ -28,6 +28,11 @@ $(document).ready(function () {
     $('table.js-datatable, table.modern-table').each(function () {
         var $table = $(this);
 
+        // Skip if explicitly marked to not use DataTables
+        if ($table.data('no-datatable') === true || $table.data('noDatatable') === true) {
+            return;
+        }
+
         if ($.fn.DataTable.isDataTable(this)) {
             return;
         }
@@ -35,7 +40,7 @@ $(document).ready(function () {
         var options = $.extend(true, {}, defaultOptions);
 
         if ($table.data('no-export') === true || $table.data('noExport') === true) {
-            options.dom = "<'row mb-3'<'col-sm-12 col-md-6'f><'col-sm-12 col-md-6 text-md-end'>>" +
+            options.dom = "<'row '<'col-sm-12 col-md-6'f><'col-sm-12 col-md-6 text-md-end'>>" +
                 "<'row'<'col-sm-12'tr>>" +
                 "<'row mt-3'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>";
             options.buttons = [];
@@ -47,6 +52,9 @@ $(document).ready(function () {
         }
         if ($table.data('ordering') === false) {
             options.ordering = false;
+        }
+        if ($table.data('responsive') === false) {
+            options.responsive = false;
         }
 
         $table.addClass('table-striped table-hover');

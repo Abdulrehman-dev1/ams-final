@@ -11,8 +11,8 @@
     </div>
 
     <!-- Statistics Cards -->
-    <div class="row mb-3">
-        <div class="col-md-3">
+    <div class="row ">
+        <div class="col-md-4">
             <div class="card">
                 <div class="card-body">
                     <h6 class="text-muted">Total Records</h6>
@@ -20,7 +20,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card">
                 <div class="card-body">
                     <h6 class="text-muted">Today's Records</h6>
@@ -28,22 +28,11 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card">
                 <div class="card-body">
                     <h6 class="text-muted">Unique Employees</h6>
                     <h3 class="mb-0">{{ number_format($stats['unique_employees']) }}</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card">
-                <div class="card-body">
-                    <h6 class="text-muted">Devices</h6>
-                    <h3 class="mb-0">{{ number_format($stats['devices_count']) }}</h3>
-                    @if($stats['latest_record'])
-                        <small class="text-muted">Latest: {{ $stats['latest_record']->attendance_date->format('Y-m-d') }}</small>
-                    @endif
                 </div>
             </div>
         </div>
@@ -76,22 +65,22 @@
                     <div class="d-flex justify-content-between mb-3">
                         <h4 class="card-title">Attendance Records</h4>
                         <div>
-                            <a href="{{ route('admin.hcc.devices.index') }}" class="btn btn-secondary btn-sm mr-2">
-                                <i class="mdi mdi-devices"></i> Devices
-                            </a>
-                            <a href="{{ route('admin.hcc.backfill.form') }}" class="btn btn-info btn-sm mr-2">
-                                <i class="mdi mdi-calendar-import"></i> Backfill
-                            </a>
-                            <form action="{{ route('admin.hcc.sync.devices') }}" method="POST" class="d-inline">
+                            <form action="{{ route('acs.daily.syncScraper', request()->query()) }}" method="POST"
+                                  onsubmit="
+                                    const btn = this.querySelector('button');
+                                    btn.disabled = true;
+                                    const spinner = document.createElement('span');
+                                    spinner.className = 'spinner-border spinner-border-sm';
+                                    spinner.setAttribute('role', 'status');
+                                    btn.innerHTML = '';
+                                    btn.appendChild(spinner);
+                                    return true;
+                                  "
+                                  class="d-inline">
                                 @csrf
-                                <button type="submit" class="btn btn-warning btn-sm mr-2">
-                                    <i class="mdi mdi-sync"></i> Sync Devices
-                                </button>
-                            </form>
-                            <form action="{{ route('admin.hcc.sync.recent') }}" method="POST" class="d-inline">
-                                @csrf
-                                <button type="submit" class="btn btn-primary btn-sm">
-                                    <i class="mdi mdi-refresh"></i> Sync Recent
+                                <input type="hidden" name="redirect_to" value="hcc_attendance">
+                                <button type="submit" class="btn btn-warning btn-sm" title="Run Python Playwright scraper to fetch attendance data">
+                                    <i class="mdi mdi-robot"></i> Sync Scraper
                                 </button>
                             </form>
                         </div>

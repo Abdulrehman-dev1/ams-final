@@ -609,7 +609,7 @@ body.swal2-no-backdrop .swal2-shown {
   align-items: center;
   justify-content: center;
   padding: 0.625em;
-  overflow-x: hidden;
+
   background-color: transparent;
   -webkit-overflow-scrolling: touch;
   /* stylelint-disable-line scss/no-duplicate-dollar-variables */
