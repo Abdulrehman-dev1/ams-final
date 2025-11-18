@@ -97,7 +97,32 @@ class HccFinalAutoCommand extends Command
                 $this->error("❌ Sync failed!");
                 $this->line("");
                 $this->error("Exit Code: " . $process->getExitCode());
-                $this->error("Error Output: " . ($errorOutput ?: $process->getErrorOutput()));
+                
+                $fullErrorOutput = $errorOutput ?: $process->getErrorOutput();
+                $this->error("Error Output:");
+                $this->line($fullErrorOutput);
+                
+                // Check for common errors and provide helpful messages
+                if (str_contains($fullErrorOutput, 'ModuleNotFoundError') || str_contains($fullErrorOutput, 'No module named')) {
+                    $this->line("");
+                    $this->warn("⚠️  Python dependencies are missing!");
+                    $this->line("");
+                    $this->info("To fix this, install the required Python packages:");
+                    $this->line("");
+                    $this->line("   1. Navigate to the scripts directory:");
+                    $this->line("      cd " . base_path('scripts'));
+                    $this->line("");
+                    $this->line("   2. Install the requirements:");
+                    $this->line("      pip install -r requirements.txt");
+                    $this->line("");
+                    $this->line("   3. Install Playwright browsers (if needed):");
+                    $this->line("      playwright install");
+                    $this->line("");
+                    $this->line("   Or use Python Launcher on Windows:");
+                    $this->line("      py -m pip install -r requirements.txt");
+                    $this->line("      py -m playwright install");
+                }
+                
                 $this->line("");
                 $this->line("Full command that failed:");
                 $this->line("   " . implode(' ', array_map(function($arg) {
